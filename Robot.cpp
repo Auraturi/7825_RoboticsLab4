@@ -33,9 +33,34 @@ void CRobot::init()
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // TODO: Create Homogeneous Transformation Matrix
-Mat CRobot::createHT(Vec3d t, Vec3d r)
+Mat CRobot::createHT(Vec3d t, Vec3d r) //t is the translation vector; r is the rotation vector, each are 3 element vectors
+	//rotation r passes (gamma y, beta B, alpha a) in doubles
+	// translation t passes (x, y, z) in doubles
+	//wRb_xyz (Y,B,A) = Rz(A)*Ry(B)*Rx(Y) 
 {
-	return (Mat1f(4, 4) << 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
+
+	double Y = r[0]; // gamma
+	double B = r[1]; // beta
+	double A = r[2]; // alpha
+
+	double _x = t[0]; // x_Boriginal
+	double _y = t[1]; // y_Boriginal
+	double _z = t[2]; // z_Boriginal
+
+	double cA = cos(A);
+	double cB = cos(B);
+	double cY = cos(Y);
+	double sA = sin(A);
+	double sB = sin(B);
+	double sY = sin(Y);
+
+	return (Mat1f(4, 4) << 
+		cA*cB,	cA*sB*sY - sA*cY,	cA * sB * cY + sA * sY,		_x, 
+		sA*cB,	sA*sB*sY + cA*cY,	sA * sB * cY - cA * sY,		_y,  
+		-sB,	cB*sY,				cB*cY,						_z, 
+		0,		0,					0,							1);	
+
+
 }
 
 std::vector<Mat> CRobot::createBox(float w, float h, float d)

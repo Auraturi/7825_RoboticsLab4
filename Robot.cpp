@@ -68,7 +68,7 @@ std::vector<Mat> CRobot::createBox(float w, float h, float d)
 	std::vector <Mat> box;
 
 	// The 8 vertexes, origin at the center of the box
-	box.push_back(Mat((Mat1f(4, 1) << -w / 2, -h / 2, -d / 2, 1)));
+	box.push_back(Mat((Mat1f(4, 1) << -w / 2, -h / 2, -d / 2, 1))); //push_back adds an element to the end of the vector
 	box.push_back(Mat((Mat1f(4, 1) << w / 2, -h / 2, -d / 2, 1)));
 	box.push_back(Mat((Mat1f(4, 1) << w / 2, h / 2, -d / 2, 1)));
 	box.push_back(Mat((Mat1f(4, 1) << -w / 2, h / 2, -d / 2, 1)));

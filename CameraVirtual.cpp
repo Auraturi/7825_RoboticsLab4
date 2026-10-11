@@ -26,9 +26,9 @@ void CCameraVirtual::init (Size image_size)
 	_cam_setting_y = 0; // units in mm
 	_cam_setting_z = 0; // units in mm
 
-	_cam_setting_roll = 0; // units in degrees
-	_cam_setting_pitch = 0; // units in degrees
-	_cam_setting_yaw = 0; // units in degrees
+	_cam_setting_roll = 0; // units in degrees, gamma Y
+	_cam_setting_pitch = 0; // units in degrees, beta B
+	_cam_setting_yaw = 0; // units in degrees, yaw A
 
 	//////////////////////////////////////
 	// Virtual Camera intrinsic
@@ -50,16 +50,48 @@ void CCameraVirtual::init (Size image_size)
 // LAB3
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// TODO: Setup camera intrinsic matrix
+// TODO: Setup camera intrinsic matrix, lec05 pg6
 void CCameraVirtual::calculate_intrinsic()
 {
-	_cam_virtual_intrinsic = (Mat1f(3, 4) << 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0);
+	double u_o = _principal_point.x;
+	double v_o = _principal_point.y;
+	double p_u = _pixel_size;
+	double p_v = _pixel_size;
+	double f = _cam_setting_f / 1000; // convert to m
+	_cam_virtual_intrinsic = (Mat1f(3, 4) << 
+		1/p_u*f,		0,			u_o,	0, 
+		0,			1/p_v*f,	v_o,	0, 
+		0,			0,			1,		0);
 }
 
 // TODO: Setup camera extrinsic matrix
 void CCameraVirtual::calculate_extrinsic()
 {
-	_cam_virtual_extrinsic = (Mat1f(4, 4) << 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
+	double Y = _cam_setting_roll; // gamma
+	double B = _cam_setting_pitch; // beta
+	double A = _cam_setting_yaw; // alpha
+
+	double _x = _cam_setting_x; // x_Boriginal
+	double _y = _cam_setting_y; // y_Boriginal
+	double _z = _cam_setting_z; // z_Boriginal
+
+	double cA = cos(A);
+	double cB = cos(B);
+	double cY = cos(Y);
+	double sA = sin(A);
+	double sB = sin(B);
+	double sY = sin(Y);
+
+	_cam_virtual_extrinsic = (Mat1f(4, 4) <<
+		cA * cB, cA * sB * sY - sA * cY, cA * sB * cY + sA * sY, _x,
+		sA * cB, sA * sB * sY + cA * cY, sA * sB * cY - cA * sY, _y,
+		-sB, cB * sY, cB * cY, _z,
+		0, 0, 0, 1);
+
+
+	//_cam_virtual_extrinsic = (Mat1f(4, 4) << 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1);
+
+
 }
 
 // TODO: transform single 3D point to 2D image point

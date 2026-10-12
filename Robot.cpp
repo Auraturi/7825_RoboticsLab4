@@ -145,7 +145,21 @@ void CRobot::drawCoord(Mat& im, std::vector<Mat> coord3d)
 
 void CRobot::create_simple_robot()
 {
+	//below is added by Ted
+	_simple_robot.clear();
 
+	// Dimensions are in meters.
+	std::vector<Mat> body = createBox(0.05f, 0.05f, 0.05f);
+	
+	//place the box in front of the camera
+	// will implement createHT to move the box to a new position and orientation
+	Mat body_transform = createHT(
+		Vec3d(0.0, 0.0, 0.001),
+		Vec3d(0.0, 0.0, 0.0));
+
+	transformPoints(body, body_transform);
+
+	_simple_robot.push_back(body);
 }
 
 void CRobot::draw_simple_robot()
@@ -161,7 +175,16 @@ void CRobot::draw_simple_robot()
 	//im.copyTo(_canvas);
 
 	_virtualcam.update_settings(_canvas);
-	drawCoord(_canvas, O);
+
+	//for drawing robot
+	for (const std::vector<Mat>& object : _simple_robot)
+	{
+		drawBox(_canvas, object, CV_RGB(255, 255, 255));
+	}
+
+
+
+	drawCoord(_canvas, O); // added to draw coordinates
 
 	//_realcam.update_settings(_canvas);
 	update_settings(_canvas);

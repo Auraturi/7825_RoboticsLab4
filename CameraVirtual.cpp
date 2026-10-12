@@ -53,11 +53,11 @@ void CCameraVirtual::init (Size image_size)
 // TODO: Setup camera intrinsic matrix, lec05 pg6
 void CCameraVirtual::calculate_intrinsic()
 {
-	double u_o = _principal_point.x;
-	double v_o = _principal_point.y;
-	double p_u = _pixel_size;
-	double p_v = _pixel_size;
-	double f = _cam_setting_f / 1000; // convert to m
+	float u_o = _principal_point.x;
+	float v_o = _principal_point.y;
+	float p_u = _pixel_size;
+	float p_v = _pixel_size;
+	float f = _cam_setting_f / 1000; // convert to m
 	_cam_virtual_intrinsic = (Mat1f(3, 4) << 
 		1/p_u*f,		0,			u_o,	0, 
 		0,			1/p_v*f,	v_o,	0, 
@@ -67,20 +67,20 @@ void CCameraVirtual::calculate_intrinsic()
 // TODO: Setup camera extrinsic matrix
 void CCameraVirtual::calculate_extrinsic()
 {
-	double Y = _cam_setting_roll; // gamma
-	double B = _cam_setting_pitch; // beta
-	double A = _cam_setting_yaw; // alpha
+	float Y = _cam_setting_roll; // gamma
+	float B = _cam_setting_pitch; // beta
+	float A = _cam_setting_yaw; // alpha
 
-	double _x = _cam_setting_x; // x_Boriginal
-	double _y = _cam_setting_y; // y_Boriginal
-	double _z = _cam_setting_z; // z_Boriginal
+	float _x = _cam_setting_x; // x_Boriginal
+	float _y = _cam_setting_y; // y_Boriginal
+	float _z = _cam_setting_z; // z_Boriginal
 
-	double cA = cos(A);
-	double cB = cos(B);
-	double cY = cos(Y);
-	double sA = sin(A);
-	double sB = sin(B);
-	double sY = sin(Y);
+	float cA = cos(A);
+	float cB = cos(B);
+	float cY = cos(Y);
+	float sA = sin(A);
+	float sB = sin(B);
+	float sY = sin(Y);
 
 	_cam_virtual_extrinsic = (Mat1f(4, 4) <<
 		cA * cB, cA * sB * sY - sA * cY, cA * sB * cY + sA * sY, _x,
@@ -108,12 +108,12 @@ void CCameraVirtual::transform_to_image(Mat pt3d_mat, Point2f& pt)
 	Mat transformMatrix = _cam_virtual_intrinsic * extInv;
 	Mat uvw = transformMatrix * pt3d_mat; //the transformation into 3x1 matrix
 
-	double u_h = uvw.at<double>(0, 0);
-	double v_h = uvw.at<double>(1, 0);
-	double w_h = uvw.at<double>(2, 0);
+	float u_h = uvw.at<float>(0, 0);
+	float v_h = uvw.at<float>(1, 0);
+	float w_h = uvw.at<float>(2, 0);
 
-	double u = u_h / w_h;
-	double v = v_h / w_h;
+	float u = u_h / w_h;
+	float v = v_h / w_h;
 	pt = Point2f(u, v);
 	
 }
@@ -121,6 +121,20 @@ void CCameraVirtual::transform_to_image(Mat pt3d_mat, Point2f& pt)
 // TODO: transform vector of 3D points to vector of 2D image points
 void CCameraVirtual::transform_to_image(std::vector<Mat> pts3d_mat, std::vector<Point2f>& pts2d)
 {
+	Mat extInv = _cam_virtual_extrinsic.inv();
+	Mat transformMatrix = _cam_virtual_intrinsic * extInv;
+	//Mat bigMatrix(4, pts3d_mat.size();
+	/*
+	Make a big matrix of all points, then transform it by the transformation matrix, then divide by w to get u and v.
+	*/
+
+
+	for (size_t i = 0; i < pts3d_mat.size(); i++) {
+		Point2f pt;
+		transform_to_image(pts3d_mat.at(i), pt);
+		pts2d.push_back(pt);
+	}
+
 }
 
 void CCameraVirtual::update_settings(Mat& im)

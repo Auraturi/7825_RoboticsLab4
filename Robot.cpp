@@ -39,20 +39,20 @@ Mat CRobot::createHT(Vec3d t, Vec3d r) //t is the translation vector; r is the r
 	//wRb_xyz (Y,B,A) = Rz(A)*Ry(B)*Rx(Y) 
 {
 
-	double Y = r[0]; // gamma
-	double B = r[1]; // beta
-	double A = r[2]; // alpha
+	float Y = r[0]; // gamma
+	float B = r[1]; // beta
+	float A = r[2]; // alpha
 
-	double _x = t[0]; // x_Boriginal
-	double _y = t[1]; // y_Boriginal
-	double _z = t[2]; // z_Boriginal
+	float _x = t[0]; // x_Boriginal
+	float _y = t[1]; // y_Boriginal
+	float _z = t[2]; // z_Boriginal
 
-	double cA = cos(A);
-	double cB = cos(B);
-	double cY = cos(Y);
-	double sA = sin(A);
-	double sB = sin(B);
-	double sY = sin(Y);
+	float cA = cos(A);
+	float cB = cos(B);
+	float cY = cos(Y);
+	float sA = sin(A);
+	float sB = sin(B);
+	float sY = sin(Y);
 
 	return (Mat1f(4, 4) << 
 		cA*cB,	cA*sB*sY - sA*cY,	cA * sB * cY + sA * sY,		_x, 

@@ -148,18 +148,44 @@ void CRobot::create_simple_robot()
 	//below is added by Ted
 	_simple_robot.clear();
 
-	// Dimensions are in meters.
-	std::vector<Mat> body = createBox(0.05f, 0.05f, 0.05f);
-	
-	//place the box in front of the camera
-	// will implement createHT to move the box to a new position and orientation
-	Mat body_transform = createHT(
-		Vec3d(0.0, 0.0, 0.001),
+	//Making all the transforms I need
+	Mat base_transform = createHT(
+		Vec3d(0.0, 0.0, 0.0),
 		Vec3d(0.0, 0.0, 0.0));
 
-	transformPoints(body, body_transform);
+	Mat wTb = createHT( //box B on top of W
+		Vec3d(0.0, 0.0, 0.05f),
+		Vec3d(0.0, 0.0, 0.0));
 
-	_simple_robot.push_back(body);
+	Mat bTc = createHT( //box C on top of B
+		Vec3d(0.0, 0.0, 0.05f),
+		Vec3d(0.0, 0.0, 0.0));
+
+	Mat cTd = createHT( //box D on top of C
+		Vec3d(0.0, 0.0, 0.05f),
+		Vec3d(0.0, 0.0, 0.0));
+
+	Mat cTe = createHT( //box E positive x axis of C
+		Vec3d(0.05f, 0.0, 0.0),
+		Vec3d(0.0, 0.0, 0.0));
+
+	Mat cTf = createHT( //box F negative x axis of C
+		Vec3d(-0.05f, 0.0, 0.0),
+		Vec3d(0.0, 0.0, 0.0));
+
+	Mat wTc = wTb * bTc;
+	Mat wTd = wTc * cTd;
+	Mat wTe = wTc * cTe;
+	Mat wTf = wTc * cTf;
+
+	std::vector<Mat> bodyTransforms = { base_transform, wTb, wTc, wTd, wTe, wTf };
+
+	for (int i = 0; i < 6; i++) {
+		std::vector<Mat> box = createBox(0.05f, 0.05f, 0.05f);
+		transformPoints(box, bodyTransforms.at(i));
+		_simple_robot.push_back(box);
+	}
+
 }
 
 void CRobot::draw_simple_robot()
@@ -177,11 +203,25 @@ void CRobot::draw_simple_robot()
 	_virtualcam.update_settings(_canvas);
 
 	//for drawing robot
-	for (const std::vector<Mat>& object : _simple_robot)
-	{
-		drawBox(_canvas, object, CV_RGB(255, 255, 255));
-	}
+	std::vector<Scalar> colors = {
 
+		CV_RGB(100, 0, 0), //darker red
+		CV_RGB(170, 0, 0), //red
+		CV_RGB(0, 0, 0), //invisible?
+		CV_RGB(255, 0, 0), //red
+		CV_RGB(0, 255, 0), //green
+		CV_RGB(0, 0, 255), //blue
+	};
+
+	//for (const std::vector<Mat>& object : _simple_robot)
+	//{
+	//	drawBox(_canvas, object, CV_RGB(255, 255, 255));
+	//}
+
+	for (size_t i = 0; i < _simple_robot.size(); i++)
+	{
+		drawBox(_canvas, _simple_robot.at(i), colors.at(i));
+	}
 
 
 	drawCoord(_canvas, O); // added to draw coordinates

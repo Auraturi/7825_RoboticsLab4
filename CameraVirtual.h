@@ -38,6 +38,6 @@ public:
 	void transform_to_image(std::vector<Mat> pts3d_mat, std::vector<Point2f>& pts2d);
 
 	void update_settings(Mat& im);
-	Mat createHT_VCam(Vec3d t, Vec3d r);
+	Mat createHT_VCam(Vec3d t, Vec3d r); //added from CRobot to be able to use here if needed.
 };
 

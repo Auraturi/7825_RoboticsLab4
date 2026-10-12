@@ -39,9 +39,9 @@ Mat CRobot::createHT(Vec3d t, Vec3d r) //t is the translation vector; r is the r
 	//wRb_xyz (Y,B,A) = Rz(A)*Ry(B)*Rx(Y) 
 {
 
-	float Y = r[0]; // gamma
-	float B = r[1]; // beta
-	float A = r[2]; // alpha
+	float Y = r[0] * CV_PI/ 180.0; // gamma
+	float B = r[1] * CV_PI/ 180.0; // beta
+	float A = r[2] * CV_PI/ 180.0; // alpha
 
 	float _x = t[0]; // x_Boriginal
 	float _y = t[1]; // y_Boriginal
@@ -155,11 +155,14 @@ void CRobot::draw_simple_robot()
 	_canvas = cv::Mat::zeros(_image_size, CV_8UC3) + CV_RGB(60, 60, 60);
 
 	std::vector<Mat> O = createCoord();
+	
 
 	//_realcam.get_image(im);
 	//im.copyTo(_canvas);
 
 	_virtualcam.update_settings(_canvas);
+	drawCoord(_canvas, O);
+
 	//_realcam.update_settings(_canvas);
 	update_settings(_canvas);
 

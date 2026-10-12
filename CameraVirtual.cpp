@@ -57,7 +57,7 @@ void CCameraVirtual::calculate_intrinsic()
 	float v_o = _principal_point.y;
 	float p_u = _pixel_size;
 	float p_v = _pixel_size;
-	float f = (float)_cam_setting_f / 1000; // convert to m
+	float f = (float)_cam_setting_f / 1000.f; // convert to m
 	_cam_virtual_intrinsic = (Mat1f(3, 4) << 
 		1/p_u*f,		0,			u_o,	0, 
 		0,			1/p_v*f,	v_o,	0, 
@@ -68,13 +68,13 @@ void CCameraVirtual::calculate_intrinsic()
 // TODO: Setup camera extrinsic matrix
 void CCameraVirtual::calculate_extrinsic()
 {
-	float Y = _cam_setting_roll; // gamma
-	float B = _cam_setting_pitch; // beta
-	float A = _cam_setting_yaw; // alpha
+	float Y = _cam_setting_roll * CV_PI/ 180.0; // gamma
+	float B = _cam_setting_pitch * CV_PI/ 180.0; // beta
+	float A = _cam_setting_yaw * CV_PI/ 180.0; // alpha
 
-	float _x = _cam_setting_x; // x_Boriginal
-	float _y = _cam_setting_y; // y_Boriginal
-	float _z = _cam_setting_z; // z_Boriginal
+	float _x = _cam_setting_x / 1000.f; // x_Boriginal
+	float _y = _cam_setting_y / 1000.f; // y_Boriginal
+	float _z = _cam_setting_z / 1000.f; // z_Boriginal
 
 	float cA = cos(A);
 	float cB = cos(B);
@@ -125,6 +125,7 @@ void CCameraVirtual::transform_to_image(std::vector<Mat> pts3d_mat, std::vector<
 	/*
 Make a big matrix of all points, then transform it by the transformation matrix, then divide by w to get u and v.
 */
+	pts2d.clear();
 
 	Mat extInv = _cam_virtual_extrinsic.inv();
 	Mat transformMatrix = _cam_virtual_intrinsic * extInv;
@@ -208,9 +209,9 @@ Mat CCameraVirtual::createHT_VCam(Vec3d t, Vec3d r) //t is the translation vecto
 //wRb_xyz (Y,B,A) = Rz(A)*Ry(B)*Rx(Y) 
 {
 
-	float Y = r[0]; // gamma
-	float B = r[1]; // beta
-	float A = r[2]; // alpha
+	float Y = r[0] * CV_PI/ 180.0; // gamma
+	float B = r[1] * CV_PI/ 180.0; // beta
+	float A = r[2] * CV_PI/ 180.0; // alpha
 
 	float _x = t[0]; // x_Boriginal
 	float _y = t[1]; // y_Boriginal

@@ -97,6 +97,24 @@ void CCameraVirtual::calculate_extrinsic()
 // TODO: transform single 3D point to 2D image point
 void CCameraVirtual::transform_to_image(Mat pt3d_mat, Point2f& pt)
 {
+	/*
+	So it's simple.
+	make a new matrix, of intrinsic x extrinsic.
+	Then take the point, and transform it by the new matrix.
+	easy.
+	
+	*/
+	Mat extInv = _cam_virtual_extrinsic.inv();
+	Mat transformMatrix = _cam_virtual_intrinsic * extInv;
+	Mat uvw = transformMatrix * pt3d_mat; //the transformation into 3x1 matrix
+
+	double u_h = uvw.at<double>(0, 0);
+	double v_h = uvw.at<double>(1, 0);
+	double w_h = uvw.at<double>(2, 0);
+
+	double u = u_h / w_h;
+	double v = v_h / w_h;
+	pt = Point2f(u, v);
 	
 }
 

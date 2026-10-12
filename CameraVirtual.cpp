@@ -97,6 +97,7 @@ void CCameraVirtual::calculate_extrinsic()
 // TODO: transform single 3D point to 2D image point
 void CCameraVirtual::transform_to_image(Mat pt3d_mat, Point2f& pt)
 {
+	
 }
 
 // TODO: transform vector of 3D points to vector of 2D image points
@@ -154,4 +155,35 @@ void CCameraVirtual::update_settings(Mat& im)
 
 	calculate_intrinsic();
 	calculate_extrinsic();
+}
+
+//a copy of the robot 's createHT function, but for the virtual camera
+Mat CCameraVirtual::createHT_VCam(Vec3d t, Vec3d r) //t is the translation vector; r is the rotation vector, each are 3 element vectors
+//rotation r passes (gamma y, beta B, alpha a) in doubles
+// translation t passes (x, y, z) in doubles
+//wRb_xyz (Y,B,A) = Rz(A)*Ry(B)*Rx(Y) 
+{
+
+	double Y = r[0]; // gamma
+	double B = r[1]; // beta
+	double A = r[2]; // alpha
+
+	double _x = t[0]; // x_Boriginal
+	double _y = t[1]; // y_Boriginal
+	double _z = t[2]; // z_Boriginal
+
+	double cA = cos(A);
+	double cB = cos(B);
+	double cY = cos(Y);
+	double sA = sin(A);
+	double sB = sin(B);
+	double sY = sin(Y);
+
+	return (Mat1f(4, 4) <<
+		cA * cB, cA * sB * sY - sA * cY, cA * sB * cY + sA * sY, _x,
+		sA * cB, sA * sB * sY + cA * cY, sA * sB * cY - cA * sY, _y,
+		-sB, cB * sY, cB * cY, _z,
+		0, 0, 0, 1);
+
+
 }

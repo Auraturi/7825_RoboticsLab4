@@ -76,8 +76,8 @@ void CCameraReal::get_image(Mat& im)
 void CCameraReal::createChArUcoBoard()
 {
 	Mat im;
-	float size_square = 0.04;
-	float size_mark = 0.02;
+	float size_square = 0.04f;
+	float size_mark = 0.02f;
 	Size board_size = Size(5, 7);
 
 	cv::aruco::DetectorParameters detectorParams = cv::aruco::DetectorParameters();

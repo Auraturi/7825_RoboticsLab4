@@ -2,6 +2,7 @@
 
 #include "CameraVirtual.h"
 #include <cmath>
+#include <limits>
 
 #include "cvui.h"
 
@@ -35,7 +36,7 @@ void CCameraVirtual::init (Size image_size)
 
 	_cam_setting_f = 3; // Units are mm, convert to m by dividing 1000
 
-	_pixel_size = 0.0000046; // Units of m
+	_pixel_size = 0.0000046f; // Units of m
 	_principal_point = Point2f(image_size / 2);
 	
 	calculate_intrinsic();
@@ -68,9 +69,9 @@ void CCameraVirtual::calculate_intrinsic()
 // TODO: Setup camera extrinsic matrix
 void CCameraVirtual::calculate_extrinsic()
 {
-	float Y = _cam_setting_roll * CV_PI/ 180.0; // gamma
-	float B = _cam_setting_pitch * CV_PI/ 180.0; // beta
-	float A = _cam_setting_yaw * CV_PI/ 180.0; // alpha
+	float Y = static_cast<float>(_cam_setting_roll * CV_PI / 180.0); // gamma
+	float B = static_cast<float>(_cam_setting_pitch * CV_PI / 180.0); // beta
+	float A = static_cast<float>(_cam_setting_yaw * CV_PI / 180.0); // alpha
 
 	float _x = _cam_setting_x / 1000.f; // x_Boriginal
 	float _y = _cam_setting_y / 1000.f; // y_Boriginal
@@ -129,20 +130,21 @@ Make a big matrix of all points, then transform it by the transformation matrix,
 
 	Mat extInv = _cam_virtual_extrinsic.inv();
 	Mat transformMatrix = _cam_virtual_intrinsic * extInv;
-	Mat bigMatrix(4, pts3d_mat.size(), CV_32F);
+	CV_Assert(pts3d_mat.size() <= static_cast<size_t>(std::numeric_limits<int>::max())); //safety check, ensures its not too big for an int
+	Mat bigMatrix(4, static_cast<int>(pts3d_mat.size()), CV_32F);
 
 	for (size_t i = 0; i < pts3d_mat.size(); i++) {
-		bigMatrix.at<float>(0, i) = pts3d_mat.at(i).at<float>(0, 0);
-		bigMatrix.at<float>(1, i) = pts3d_mat.at(i).at<float>(1, 0);
-		bigMatrix.at<float>(2, i) = pts3d_mat.at(i).at<float>(2, 0);
-		bigMatrix.at<float>(3, i) = 1.0f;
+		bigMatrix.at<float>(0, static_cast<int>(i)) = pts3d_mat.at(i).at<float>(0, 0);
+		bigMatrix.at<float>(1, static_cast<int>(i)) = pts3d_mat.at(i).at<float>(1, 0);
+		bigMatrix.at<float>(2, static_cast<int>(i)) = pts3d_mat.at(i).at<float>(2, 0);
+		bigMatrix.at<float>(3, static_cast<int>(i)) = 1.0f;
 	}
 
 	Mat uvw = transformMatrix * bigMatrix; //the transformation into 3xN matrix
 	for (size_t i = 0; i < pts3d_mat.size(); i++) {
-		float u_h = uvw.at<float>(0, i);
-		float v_h = uvw.at<float>(1, i);
-		float w_h = uvw.at<float>(2, i);
+		float u_h = uvw.at<float>(0, static_cast<int>(i));
+		float v_h = uvw.at<float>(1, static_cast<int>(i));
+		float w_h = uvw.at<float>(2, static_cast<int>(i));
 		float u = u_h / w_h;
 		float v = v_h / w_h;
 		pts2d.push_back(Point2f(u, v));
@@ -209,13 +211,13 @@ Mat CCameraVirtual::createHT_VCam(Vec3d t, Vec3d r) //t is the translation vecto
 //wRb_xyz (Y,B,A) = Rz(A)*Ry(B)*Rx(Y) 
 {
 
-	float Y = r[0] * CV_PI/ 180.0; // gamma
-	float B = r[1] * CV_PI/ 180.0; // beta
-	float A = r[2] * CV_PI/ 180.0; // alpha
+	float Y = static_cast<float>(r[0] * CV_PI / 180.0); // gamma
+	float B = static_cast<float>(r[1] * CV_PI / 180.0); // beta
+	float A = static_cast<float>(r[2] * CV_PI / 180.0); // alpha
 
-	float _x = t[0]; // x_Boriginal
-	float _y = t[1]; // y_Boriginal
-	float _z = t[2]; // z_Boriginal
+	float _x = static_cast<float>(t[0]); // x_Boriginal
+	float _y = static_cast<float>(t[1]); // y_Boriginal
+	float _z = static_cast<float>(t[2]); // z_Boriginal
 
 	float cA = cos(A);
 	float cB = cos(B);

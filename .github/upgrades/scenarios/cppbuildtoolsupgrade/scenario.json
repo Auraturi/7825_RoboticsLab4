@@ -1,0 +1,16 @@
+{
+  "scenarioId": "CppBuildToolsUpgrade",
+  "operationId": "bdd1b01e-db27-45ef-9374-ca9884a45b16",
+  "description": "Upgrade MSVC (C\u002B\u002B) Build Tools to the latest version and/or resolve C/C\u002B\u002B build issues.",
+  "startTime": "2026-10-12T18:22:12.6441616Z",
+  "lastUpdateTime": "2026-10-12T18:33:54.8414779Z",
+  "properties": {
+    "taskStates": {
+      "01-camera-real-conversions": "Completed",
+      "02-camera-virtual-conversions": "Completed",
+      "03-robot-conversions": "Completed",
+      "04-build-validation": "Completed"
+    }
+  },
+  "folderPath": ""
+}

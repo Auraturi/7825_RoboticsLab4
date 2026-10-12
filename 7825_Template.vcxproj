@@ -459,6 +459,17 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <None Include=".github\upgrades\scenarios\cppbuildtoolsupgrade\assessment.md" />
+    <None Include=".github\upgrades\scenarios\cppbuildtoolsupgrade\final-report.md" />
+    <None Include=".github\upgrades\scenarios\cppbuildtoolsupgrade\plan.md" />
+    <None Include=".github\upgrades\scenarios\cppbuildtoolsupgrade\scenario-instructions.md" />
+    <None Include=".github\upgrades\scenarios\cppbuildtoolsupgrade\tasks.md" />
+    <None Include=".github\upgrades\scenarios\cppbuildtoolsupgrade\tasks\01-camera-real-conversions\progress-details.md" />
+    <None Include=".github\upgrades\scenarios\cppbuildtoolsupgrade\tasks\02-camera-virtual-conversions\progress-details.md" />
+    <None Include=".github\upgrades\scenarios\cppbuildtoolsupgrade\tasks\03-robot-conversions\progress-details.md" />
+    <None Include=".github\upgrades\scenarios\cppbuildtoolsupgrade\tasks\04-build-validation\progress-details.md" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

@@ -41,13 +41,13 @@ Mat CRobot::createHT(Vec3d t, Vec3d r) //t is the translation vector; r is the r
 	//wRb_xyz (Y,B,A) = Rz(A)*Ry(B)*Rx(Y) 
 {
 
-	float Y = r[0] * CV_PI/ 180.0; // gamma
-	float B = r[1] * CV_PI/ 180.0; // beta
-	float A = r[2] * CV_PI/ 180.0; // alpha
+	float Y = static_cast<float>(r[0] * CV_PI / 180.0); // gamma
+	float B = static_cast<float>(r[1] * CV_PI / 180.0); // beta
+	float A = static_cast<float>(r[2] * CV_PI / 180.0); // alpha
 
-	float _x = t[0]; // x_Boriginal
-	float _y = t[1]; // y_Boriginal
-	float _z = t[2]; // z_Boriginal
+	float _x = static_cast<float>(t[0]); // x_Boriginal
+	float _y = static_cast<float>(t[1]); // y_Boriginal
+	float _z = static_cast<float>(t[2]); // z_Boriginal
 
 	float cA = cos(A);
 	float cB = cos(B);
@@ -86,7 +86,7 @@ std::vector<Mat> CRobot::createCoord()
 {
 	std::vector <Mat> coord;
 
-	float axis_length = 0.05;
+	float axis_length = 0.05f;
 
 	coord.push_back((Mat1f(4, 1) << 0, 0, 0, 1)); // O
 	coord.push_back((Mat1f(4, 1) << axis_length, 0, 0, 1)); // X
@@ -110,8 +110,8 @@ void CRobot::drawBox(Mat& im, std::vector<Mat> box3d, Scalar colour)
 	std::vector<Point2f> box2d;
 
 	// The 12 lines connecting all vertexes 
-	float draw_box1[] = { 0,1,2,3,4,5,6,7,0,1,2,3 };
-	float draw_box2[] = { 1,2,3,0,5,6,7,4,4,5,6,7 };
+	std::size_t draw_box1[] = { 0,1,2,3,4,5,6,7,0,1,2,3 };
+	std::size_t draw_box2[] = { 1,2,3,0,5,6,7,4,4,5,6,7 };
 
 	// If Virtual Camera
 	_virtualcam.transform_to_image(box3d, box2d);

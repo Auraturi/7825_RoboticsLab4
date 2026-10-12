@@ -121,18 +121,29 @@ void CCameraVirtual::transform_to_image(Mat pt3d_mat, Point2f& pt)
 // TODO: transform vector of 3D points to vector of 2D image points
 void CCameraVirtual::transform_to_image(std::vector<Mat> pts3d_mat, std::vector<Point2f>& pts2d)
 {
+	/*
+Make a big matrix of all points, then transform it by the transformation matrix, then divide by w to get u and v.
+*/
+
 	Mat extInv = _cam_virtual_extrinsic.inv();
 	Mat transformMatrix = _cam_virtual_intrinsic * extInv;
-	//Mat bigMatrix(4, pts3d_mat.size();
-	/*
-	Make a big matrix of all points, then transform it by the transformation matrix, then divide by w to get u and v.
-	*/
-
+	Mat bigMatrix(4, pts3d_mat.size(), CV_32F);
 
 	for (size_t i = 0; i < pts3d_mat.size(); i++) {
-		Point2f pt;
-		transform_to_image(pts3d_mat.at(i), pt);
-		pts2d.push_back(pt);
+		bigMatrix.at<float>(0, i) = pts3d_mat.at(i).at<float>(0, 0);
+		bigMatrix.at<float>(1, i) = pts3d_mat.at(i).at<float>(1, 0);
+		bigMatrix.at<float>(2, i) = pts3d_mat.at(i).at<float>(2, 0);
+		bigMatrix.at<float>(3, i) = 1.0f;
+	}
+
+	Mat uvw = transformMatrix * bigMatrix; //the transformation into 3xN matrix
+	for (size_t i = 0; i < pts3d_mat.size(); i++) {
+		float u_h = uvw.at<float>(0, i);
+		float v_h = uvw.at<float>(1, i);
+		float w_h = uvw.at<float>(2, i);
+		float u = u_h / w_h;
+		float v = v_h / w_h;
+		pts2d.push_back(Point2f(u, v));
 	}
 
 }
@@ -196,20 +207,20 @@ Mat CCameraVirtual::createHT_VCam(Vec3d t, Vec3d r) //t is the translation vecto
 //wRb_xyz (Y,B,A) = Rz(A)*Ry(B)*Rx(Y) 
 {
 
-	double Y = r[0]; // gamma
-	double B = r[1]; // beta
-	double A = r[2]; // alpha
+	float Y = r[0]; // gamma
+	float B = r[1]; // beta
+	float A = r[2]; // alpha
 
-	double _x = t[0]; // x_Boriginal
-	double _y = t[1]; // y_Boriginal
-	double _z = t[2]; // z_Boriginal
+	float _x = t[0]; // x_Boriginal
+	float _y = t[1]; // y_Boriginal
+	float _z = t[2]; // z_Boriginal
 
-	double cA = cos(A);
-	double cB = cos(B);
-	double cY = cos(Y);
-	double sA = sin(A);
-	double sB = sin(B);
-	double sY = sin(Y);
+	float cA = cos(A);
+	float cB = cos(B);
+	float cY = cos(Y);
+	float sA = sin(A);
+	float sB = sin(B);
+	float sY = sin(Y);
 
 	return (Mat1f(4, 4) <<
 		cA * cB, cA * sB * sY - sA * cY, cA * sB * cY + sA * sY, _x,

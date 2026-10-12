@@ -8,7 +8,7 @@
 CCameraVirtual::CCameraVirtual()
 {
 	// Initialize with a default camera image size 
-	init(Size(1000, 600));
+	init(Size(1280, 720));
 }
 
 CCameraVirtual::~CCameraVirtual()
@@ -22,13 +22,13 @@ void CCameraVirtual::init (Size image_size)
 
 	_cam_setting_f = 0;
 
-	_cam_setting_x = 0; // units in mm
-	_cam_setting_y = 0; // units in mm
-	_cam_setting_z = 0; // units in mm
+	_cam_setting_x = 184; // units in mm
+	_cam_setting_y = -368; // units in mm
+	_cam_setting_z = -32; // units in mm
 
-	_cam_setting_roll = 0; // units in degrees, gamma Y
+	_cam_setting_roll = -78; // units in degrees, gamma Y
 	_cam_setting_pitch = 0; // units in degrees, beta B
-	_cam_setting_yaw = 0; // units in degrees, yaw A
+	_cam_setting_yaw = 18; // units in degrees, yaw A
 
 	//////////////////////////////////////
 	// Virtual Camera intrinsic

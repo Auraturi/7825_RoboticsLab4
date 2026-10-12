@@ -9,11 +9,13 @@ CRobot::CRobot()
 {
 	//////////////////////////////////////
 	// Create image and window for drawing
-	_image_size = Size(1000, 600);
+	_image_size = Size(1280, 720);
 
 	_canvas = cv::Mat::zeros(_image_size, CV_8UC3);
 	cv::namedWindow(CANVAS_NAME);
 	cvui::init(CANVAS_NAME);
+
+	_virtualcam.init(_image_size); //matches canvas size to the virtual camera size
 
 	init();
 }

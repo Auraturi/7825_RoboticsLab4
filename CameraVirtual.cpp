@@ -57,12 +57,13 @@ void CCameraVirtual::calculate_intrinsic()
 	float v_o = _principal_point.y;
 	float p_u = _pixel_size;
 	float p_v = _pixel_size;
-	float f = _cam_setting_f / 1000; // convert to m
+	float f = (float)_cam_setting_f / 1000; // convert to m
 	_cam_virtual_intrinsic = (Mat1f(3, 4) << 
 		1/p_u*f,		0,			u_o,	0, 
 		0,			1/p_v*f,	v_o,	0, 
 		0,			0,			1,		0);
 }
+
 
 // TODO: Setup camera extrinsic matrix
 void CCameraVirtual::calculate_extrinsic()

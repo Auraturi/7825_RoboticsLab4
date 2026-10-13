@@ -22,6 +22,7 @@ private:
 	void calculate_intrinsic();
 	void calculate_extrinsic();
 	void lookAtOrigin(); // for lookAt functionality, if true, the camera will look at the origin (0,0,0) when moving around.
+	void lookAtOrigin2(); // same as above, but hopefully thinner, leaner.
 
 	// CVUI setting variables
 	int _cam_setting_f;

@@ -74,7 +74,8 @@ void CCameraVirtual::calculate_extrinsic()
 	if (lookAt) {
 		// If lookAt mode is enabled, let lookAtOrigin compute and set the
 		// camera-to-world extrinsic directly and skip the angle-based rebuild.
-		lookAtOrigin();
+		//lookAtOrigin();
+		lookAtOrigin2();
 		return;
 	}
 
@@ -300,7 +301,60 @@ void CCameraVirtual::lookAtOrigin()
 }
 
 
+void CCameraVirtual::lookAtOrigin2()
+{
+	// Camera position in meters. The target is the world origin.
+	const Vec3d cameraPosition(_cam_setting_x / 1000.0,
+		_cam_setting_y / 1000.0,
+		_cam_setting_z / 1000.0);
+	Vec3d forward = -cameraPosition;
+	const double forwardLength = cv::norm(forward);
+	if (forwardLength < 1e-9)
+		return;
+	forward /= forwardLength;
 
+	// Build the camera axes. These become the columns of the rotation matrix.
+	Vec3d referenceUp(0.0, 0.0, -1.0);
+	if (std::abs(forward.dot(referenceUp)) > 0.9999)
+		referenceUp = Vec3d(0.0, 1.0, 0.0);
+
+	Vec3d right = referenceUp.cross(forward);
+	const double rightLength = cv::norm(right);
+	if (rightLength < 1e-9)
+		return;
+	right /= rightLength;
+	const Vec3d up = forward.cross(right);
+
+	// Rcw maps camera coordinates to world coordinates:
+	// column 0 = right, column 1 = up, column 2 = forward.
+	const Matx33d Rcw(
+		right[0], up[0], forward[0],
+		right[1], up[1], forward[1],
+		right[2], up[2], forward[2]);
+
+	// Extract the same yaw, pitch, and roll convention used elsewhere.
+	const double pitch = std::atan2(-Rcw(2, 0),
+		std::sqrt(Rcw(0, 0) * Rcw(0, 0) + Rcw(1, 0) * Rcw(1, 0)));
+	const double cosPitch = std::cos(pitch);
+	const double yaw = std::abs(cosPitch) > 1e-6
+		? std::atan2(Rcw(1, 0) / cosPitch, Rcw(0, 0) / cosPitch)
+		: std::atan2(-Rcw(0, 1), Rcw(1, 1));
+	const double roll = std::abs(cosPitch) > 1e-6
+		? std::atan2(Rcw(2, 1) / cosPitch, Rcw(2, 2) / cosPitch)
+		: 0.0;
+
+	_cam_setting_yaw = static_cast<int>(std::round(yaw * 180.0 / CV_PI));
+	_cam_setting_pitch = static_cast<int>(std::round(pitch * 180.0 / CV_PI));
+	_cam_setting_roll = static_cast<int>(std::round(roll * 180.0 / CV_PI));
+
+	// Homogeneous camera-to-world transform: [ Rcw | cameraPosition ].
+	_cam_virtual_extrinsic = (Mat1f(4, 4) <<
+		static_cast<float>(Rcw(0, 0)), static_cast<float>(Rcw(0, 1)), static_cast<float>(Rcw(0, 2)), static_cast<float>(cameraPosition[0]),
+		static_cast<float>(Rcw(1, 0)), static_cast<float>(Rcw(1, 1)), static_cast<float>(Rcw(1, 2)), static_cast<float>(cameraPosition[1]),
+		static_cast<float>(Rcw(2, 0)), static_cast<float>(Rcw(2, 1)), static_cast<float>(Rcw(2, 2)), static_cast<float>(cameraPosition[2]),
+		0.0f, 0.0f, 0.0f, 1.0f);
+
+}
 
 
 

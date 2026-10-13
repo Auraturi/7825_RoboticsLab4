@@ -71,8 +71,12 @@ void CCameraVirtual::calculate_intrinsic()
 // TODO: Setup camera extrinsic matrix
 void CCameraVirtual::calculate_extrinsic()
 {
-	if (lookAt)
+	if (lookAt) {
+		// If lookAt mode is enabled, let lookAtOrigin compute and set the
+		// camera-to-world extrinsic directly and skip the angle-based rebuild.
 		lookAtOrigin();
+		return;
+	}
 
 	float Y = static_cast<float>(_cam_setting_roll * CV_PI / 180.0); // gamma
 	float B = static_cast<float>(_cam_setting_pitch * CV_PI / 180.0); // beta
@@ -218,24 +222,81 @@ void CCameraVirtual::update_settings(Mat& im)
 
 void CCameraVirtual::lookAtOrigin()
 {
-	// Calculate the direction vector from the camera position to the origin
-	Vec3d cameraPosition(_cam_setting_x / 1000.0, _cam_setting_y / 1000.0, _cam_setting_z / 1000.0);
-	Vec3d directionToOrigin = -cameraPosition; // Vector pointing from camera to origin
-	// Normalize the direction vector
-	double length = sqrt(directionToOrigin[0] * directionToOrigin[0] +
-		directionToOrigin[1] * directionToOrigin[1] +
-		directionToOrigin[2] * directionToOrigin[2]);
-	if (length > 1e-6) // Avoid division by zero
-	{
-		directionToOrigin /= length;
+	// Robust look-at implementation: compute rotation so the camera's forward axis
+	// points toward the world origin, then extract Euler angles using the same
+	// R = Rz(A) * Ry(B) * Rx(Y) convention used by calculate_extrinsic().
+	// Camera position in meters
+	Vec3d camPos(_cam_setting_x / 1000.0, _cam_setting_y / 1000.0, _cam_setting_z / 1000.0);
+
+	// Forward vector from camera to origin (world coords)
+	Vec3d forward = -camPos;
+	double flen = cv::norm(forward);
+	if (flen < 1e-9) {
+		// Camera is essentially at the origin; leave angles unchanged
+		return;
 	}
-	// Calculate yaw (A), pitch (B), and roll (Y) angles based on the direction vector
-	double yaw = atan2(directionToOrigin[1], directionToOrigin[0]) * 180.0 / CV_PI; // Yaw angle in degrees
-	double pitch = atan2(-directionToOrigin[2], sqrt(directionToOrigin[0] * directionToOrigin[0] + directionToOrigin[1] * directionToOrigin[1])) * 180.0 / CV_PI; // Pitch angle in degrees
-	// Update camera settings
-	_cam_setting_yaw = static_cast<int>(yaw);
-	_cam_setting_pitch = static_cast<int>(pitch);
-	_cam_setting_roll = 0; // Keep roll at 0 for simplicity
+	forward /= flen;
+
+	// World-up (choose Z up). If forward is nearly parallel to up, pick an alternate up
+	Vec3d worldUp(0.0, 0.0, -1.0);
+	if (std::abs(forward.dot(worldUp)) > 0.9999) {
+		worldUp = Vec3d(0.0, 1.0, 0.0);
+	}
+
+	// Build orthonormal basis: right, up, forward (columns of Rcw)
+	Vec3d right = worldUp.cross(forward);
+	double rlen = cv::norm(right);
+	if (rlen < 1e-9) {
+		// Fallback: cannot build basis
+		return;
+	}
+	right /= rlen;
+	Vec3d up = forward.cross(right);
+	// Flip up to match image coordinate convention (prevents upside-down projection)
+	//up = -up;
+
+	// Rotation matrix from camera to world (columns are camera axes in world coords)
+	// Rcw = [ right | up | forward ]
+	double R00 = right[0], R10 = right[1], R20 = right[2];
+	double R01 = up[0],    R11 = up[1],    R21 = up[2];
+	double R02 = forward[0],R12 = forward[1],R22 = forward[2];
+
+	// Extract Euler angles matching calculate_extrinsic() construction:
+	// R = Rz(A) * Ry(B) * Rx(Y)
+	// From that, R20 = -sin(B)
+	double B_rad = std::atan2(-R20, std::sqrt(R00*R00 + R10*R10));
+	double cosB = std::cos(B_rad);
+	double A_rad = 0.0;
+	double Y_rad = 0.0;
+	if (std::abs(cosB) > 1e-6) {
+		A_rad = std::atan2(R10 / cosB, R00 / cosB);
+		Y_rad = std::atan2(R21 / cosB, R22 / cosB);
+	} else {
+		// Gimbal lock: set yaw from R01/R11 and roll = 0
+		A_rad = std::atan2(-R01, R11);
+		Y_rad = 0.0;
+	}
+
+	double A_deg = A_rad * 180.0 / CV_PI;
+	double B_deg = B_rad * 180.0 / CV_PI;
+	double Y_deg = Y_rad * 180.0 / CV_PI;
+
+	// Update camera integer settings (round to nearest int)
+	_cam_setting_yaw = static_cast<int>(std::round(A_deg));
+	_cam_setting_pitch = static_cast<int>(std::round(B_deg));
+	_cam_setting_roll = static_cast<int>(std::round(Y_deg));
+
+	// Also set the camera-to-world extrinsic directly from the computed basis
+	// so calculate_extrinsic() can return early in lookAt mode.
+	float tx = static_cast<float>(camPos[0]);
+	float ty = static_cast<float>(camPos[1]);
+	float tz = static_cast<float>(camPos[2]);
+
+	_cam_virtual_extrinsic = (Mat1f(4, 4) <<
+		static_cast<float>(R00), static_cast<float>(R01), static_cast<float>(R02), tx,
+		static_cast<float>(R10), static_cast<float>(R11), static_cast<float>(R12), ty,
+		static_cast<float>(R20), static_cast<float>(R21), static_cast<float>(R22), tz,
+		0.0f, 0.0f, 0.0f, 1.0f);
 }
 
 

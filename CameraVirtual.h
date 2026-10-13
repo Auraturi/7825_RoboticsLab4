@@ -31,6 +31,8 @@ private:
 	int _cam_setting_pitch;
 	int _cam_setting_yaw;
 
+	bool lookAt; // for lookAt functionality, if true, the camera will look at the origin (0,0,0) when moving around.
+
 public:
 	void init(Size image_size);
 

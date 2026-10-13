@@ -31,6 +31,8 @@ void CCameraVirtual::init (Size image_size)
 	_cam_setting_pitch = 0; // units in degrees, beta B
 	_cam_setting_yaw = 18; // units in degrees, yaw A
 
+	lookAt = false; //lookAt functionality, if true, the camera will look at the origin (0,0,0) when moving around. impacts the extrinsic matrix calculation.
+
 	//////////////////////////////////////
 	// Virtual Camera intrinsic
 
@@ -157,7 +159,7 @@ void CCameraVirtual::update_settings(Mat& im)
 	bool track_board = false;
 	Point _camera_setting_window;
 
-	cvui::window(im, _camera_setting_window.x, _camera_setting_window.y, 200, 375, "Virtual Camera Settings");
+	cvui::window(im, _camera_setting_window.x, _camera_setting_window.y, 200, 425, "Virtual Camera Settings");
 
 	_camera_setting_window.x = 5;
 	_camera_setting_window.y = 20;
@@ -187,6 +189,13 @@ void CCameraVirtual::update_settings(Mat& im)
 	_camera_setting_window.y += 45;
 	cvui::trackbar(im, _camera_setting_window.x, _camera_setting_window.y, 180, &_cam_setting_yaw, -180, 180);
 	cvui::text(im, _camera_setting_window.x + 180, _camera_setting_window.y + 20, "Y");
+
+	_camera_setting_window.y += 50;
+	if (cvui::button(im, _camera_setting_window.x, _camera_setting_window.y, 100, 30, "Look At"))
+	{
+		//The code, requires debounce, to ensure it only runs once per click, and not every frame while the button is held down.
+		lookAt = !lookAt;
+	}
 
 	_camera_setting_window.y += 45;
 	if (cvui::button(im, _camera_setting_window.x, _camera_setting_window.y, 100, 30, "Reset"))

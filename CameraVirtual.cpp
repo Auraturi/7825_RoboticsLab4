@@ -71,6 +71,9 @@ void CCameraVirtual::calculate_intrinsic()
 // TODO: Setup camera extrinsic matrix
 void CCameraVirtual::calculate_extrinsic()
 {
+	if (lookAt)
+		lookAtOrigin();
+
 	float Y = static_cast<float>(_cam_setting_roll * CV_PI / 180.0); // gamma
 	float B = static_cast<float>(_cam_setting_pitch * CV_PI / 180.0); // beta
 	float A = static_cast<float>(_cam_setting_yaw * CV_PI / 180.0); // alpha
@@ -212,6 +215,35 @@ void CCameraVirtual::update_settings(Mat& im)
 	calculate_intrinsic();
 	calculate_extrinsic();
 }
+
+void CCameraVirtual::lookAtOrigin()
+{
+	// Calculate the direction vector from the camera position to the origin
+	Vec3d cameraPosition(_cam_setting_x / 1000.0, _cam_setting_y / 1000.0, _cam_setting_z / 1000.0);
+	Vec3d directionToOrigin = -cameraPosition; // Vector pointing from camera to origin
+	// Normalize the direction vector
+	double length = sqrt(directionToOrigin[0] * directionToOrigin[0] +
+		directionToOrigin[1] * directionToOrigin[1] +
+		directionToOrigin[2] * directionToOrigin[2]);
+	if (length > 1e-6) // Avoid division by zero
+	{
+		directionToOrigin /= length;
+	}
+	// Calculate yaw (A), pitch (B), and roll (Y) angles based on the direction vector
+	double yaw = atan2(directionToOrigin[1], directionToOrigin[0]) * 180.0 / CV_PI; // Yaw angle in degrees
+	double pitch = atan2(-directionToOrigin[2], sqrt(directionToOrigin[0] * directionToOrigin[0] + directionToOrigin[1] * directionToOrigin[1])) * 180.0 / CV_PI; // Pitch angle in degrees
+	// Update camera settings
+	_cam_setting_yaw = static_cast<int>(yaw);
+	_cam_setting_pitch = static_cast<int>(pitch);
+	_cam_setting_roll = 0; // Keep roll at 0 for simplicity
+}
+
+
+
+
+
+
+
 
 //a copy of the robot 's createHT function, but for the virtual camera
 Mat CCameraVirtual::createHT_VCam(Vec3d t, Vec3d r) //t is the translation vector; r is the rotation vector, each are 3 element vectors

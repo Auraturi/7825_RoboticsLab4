@@ -154,6 +154,11 @@ void CRobot::create_simple_robot()
 	//below is added by Ted
 	_simple_robot.clear();
 
+	Mat board_align = createHT(
+		Vec3d(0.0, 0.0, 0.0),
+		Vec3d(180.0, 0.0, 90.0)
+		);
+
 	//Making all the transforms I need
 	Mat base_transform = createHT(
 		Vec3d(0.0, 0.0, 0.0),
@@ -179,6 +184,7 @@ void CRobot::create_simple_robot()
 		Vec3d(-0.05f, 0.0, 0.0),
 		Vec3d(0.0, 0.0, 0.0));
 
+
 	Mat wTc = wTb * bTc;
 	Mat wTd = wTc * cTd;
 	Mat wTe = wTc * cTe;
@@ -189,6 +195,12 @@ void CRobot::create_simple_robot()
 	for (int i = 0; i < 6; i++) {
 		std::vector<Mat> box = createBox(0.05f, 0.05f, 0.05f);
 		transformPoints(box, bodyTransforms.at(i));
+
+		// Align the robot model into the board coordinate system
+		for (int j = 0; j < box.size(); j++) {
+			box.at(j) = board_align * box.at(j);
+			}
+
 		_simple_robot.push_back(box);
 	}
 
@@ -207,7 +219,14 @@ void CRobot::draw_simple_robot()
 	//get rvec and tvec;
 
 	_realcam.detect_markers(0);
+	
+	_realcam.detect_markers(0);
 
+	if (_realcam.get_rvec().empty() || _realcam.get_tvec().empty())
+		{
+		cv::imshow(CANVAS_NAME, _canvas);
+		return;
+		}
 
 
 	im.copyTo(_canvas);
@@ -230,9 +249,11 @@ void CRobot::draw_simple_robot()
 	//{
 	//	drawBox(_canvas, object, CV_RGB(255, 255, 255));
 	//}
+	
 
 	for (size_t i = 0; i < _simple_robot.size(); i++)
-	{
+		{
+	
 		drawBox(_canvas, _simple_robot.at(i), colors.at(i));
 	}
 

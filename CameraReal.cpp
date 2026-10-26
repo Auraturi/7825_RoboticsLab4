@@ -146,11 +146,18 @@ void CCameraReal::detect_markers(int cam_id)
 		charucoboard.matchImagePoints(currentCharucoCorners, currentCharucoIds, currentObjectPoints, currentImagePoints);
 		bool success = cv::solvePnP(currentObjectPoints, currentImagePoints, _cam_webcam_intrinsic, _cam_webcam_dist_coeff, rvec, tvec);
 
-		
-		if (success)
+		try {
+			if (success)
+				{
+				_rvec = rvec;
+				_tvec = tvec;
+				}
+			}
+		catch (...)
 			{
-			_rvec = rvec;
-			_tvec = tvec;
+			//put just generic catch here
+			//do nothing
+
 			}
 		/*if (success)
 			{
@@ -310,16 +317,39 @@ void CCameraReal::calibrate_board(int cam_id)
 	}
 }
 
+
 void CCameraReal::transform_to_image(Mat pt3d_mat, Point2f& pt)
 	{
-	vector<Point3f> Ptr = { Point3f(pt3d_mat.at<float>(0, 0), pt3d_mat.at<float>(1, 0), pt3d_mat.at<float>(2, 0)) };
-	if (!(_rvec.empty() || _tvec.empty() || _cam_webcam_intrinsic.empty() || _cam_webcam_dist_coeff.empty()))
+	pt = Point2f(-1, -1); // initialize safely
+
+	if (_rvec.empty() || _tvec.empty() ||
+		_cam_webcam_intrinsic.empty() || _cam_webcam_dist_coeff.empty())
 		{
-		vector<Point2f> imagePoints;
-		projectPoints(Ptr, _rvec, _tvec, _cam_webcam_intrinsic, _cam_webcam_dist_coeff, imagePoints);
-		pt = imagePoints[0];
+		return;
 		}
+
+	if (pt3d_mat.rows != 4 || pt3d_mat.cols != 1)
+		{
+		return;
+		}
+
+	vector<Point3f> Ptr = {
+		Point3f(
+			pt3d_mat.at<float>(0, 0),
+			pt3d_mat.at<float>(1, 0),
+			pt3d_mat.at<float>(2, 0)
+		)
+		};
+
+	vector<Point2f> imagePoints;
+	projectPoints(Ptr, _rvec, _tvec, _cam_webcam_intrinsic, _cam_webcam_dist_coeff, imagePoints);
+
+	if (!imagePoints.empty())
+		{
+		pt = imagePoints[0];
+	}
 }
+
 
 void CCameraReal::transform_to_image(std::vector<Mat> pts3d_mat, std::vector<Point2f>& pts2d)
 {	//calls the singular function for each point.

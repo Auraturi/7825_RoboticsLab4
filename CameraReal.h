@@ -29,6 +29,8 @@ private:
 	Mat _rvec, _tvec; //Eth
 
 public:
+	const Mat& get_rvec() const { return _rvec; }
+	const Mat& get_tvec() const { return _tvec; }
 
 	void start_webcam(int webcam_id);
 	void get_image(Mat& im);
@@ -46,5 +48,7 @@ public:
 	void transform_to_image(vector<Mat> pts3d_mat, vector<Point2f>& pts2d);
 
 	void update_settings(Mat &im);
+
+
 };
 

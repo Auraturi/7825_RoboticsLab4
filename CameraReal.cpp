@@ -231,7 +231,8 @@ void CCameraReal::calibrate_board(int cam_id)
 
 void CCameraReal::transform_to_image(Mat pt3d_mat, Point2f& pt)
 {
-	// projectPoints(...);
+
+	// solvePnP(...);
 }
 
 void CCameraReal::transform_to_image(std::vector<Mat> pts3d_mat, std::vector<Point2f>& pts2d)

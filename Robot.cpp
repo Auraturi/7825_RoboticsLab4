@@ -199,8 +199,14 @@ void CRobot::draw_simple_robot()
 	std::vector<Mat> O = createCoord();
 	
 
-	//_realcam.get_image(im);
-	//im.copyTo(_canvas);
+	_realcam.get_image(im);
+
+	//realcam.trackmarkers(im, get rvec and tvec); Live tracking of markers.
+
+
+
+	im.copyTo(_canvas);
+
 
 	_virtualcam.update_settings(_canvas);
 

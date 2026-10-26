@@ -46,11 +46,11 @@ void lab4(int cam_id)
 {
     char exit_key = -1;
 
-    /////used to calibrate the camera
+    /*////used to calibrate the camera
     //CCameraReal calibration_camera;
 	//calibration_camera.createChArUcoBoard();   
 	//calibration_camera.calibrate_board(cam_id);
-    /////
+    ////*/
 
     CRobot robot;
 

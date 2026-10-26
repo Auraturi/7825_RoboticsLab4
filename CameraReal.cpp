@@ -76,8 +76,8 @@ void CCameraReal::get_image(Mat& im)
 void CCameraReal::createChArUcoBoard()
 {
 	Mat im;
-	float size_square = 0.04f;
-	float size_mark = 0.02f;
+	float size_square = 0.035f; //35mm
+	float size_mark = 0.021f; //21mm
 	Size board_size = Size(5, 7);
 
 	cv::aruco::DetectorParameters detectorParams = cv::aruco::DetectorParameters();
@@ -94,8 +94,8 @@ void CCameraReal::calibrate_board(int cam_id)
 	// Board settings
 	Size board_size = Size(5, 7);
 
-	float size_aruco_square = 0.0;
-	float size_aruco_mark = 0.0;
+	float size_aruco_square = 0.035f; //from 0 to 0.035f; //35mm
+	float size_aruco_mark = 0.021f; //from 0 to 0.021f; //21mm
 
 	aruco::DetectorParameters detectorParams = aruco::DetectorParameters();
 	aruco::Dictionary dictionary = aruco::getPredefinedDictionary(aruco::DICT_6X6_250);

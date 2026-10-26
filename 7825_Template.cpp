@@ -44,7 +44,25 @@ void lab3(int cam_id)
 
 void lab4(int cam_id)
 {
+    char exit_key = -1;
 
+    /////used to calibrate the camera
+    //CCameraReal calibration_camera;
+	//calibration_camera.createChArUcoBoard();   
+	//calibration_camera.calibrate_board(cam_id);
+    /////
+
+    CRobot robot;
+
+    robot.create_simple_robot();
+
+    while (exit_key != 'q')
+        {
+        robot.draw_simple_robot();
+        exit_key = waitKey(10);
+        }
+
+        
 }
 
 void lab5(int cam_id)

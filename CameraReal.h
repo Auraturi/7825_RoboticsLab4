@@ -26,6 +26,8 @@ private:
 	Mat _cam_webcam_extrinsic;
 	Mat _cam_webcam_dist_coeff;
 
+	Mat _rvec, _tvec; //Eth
+
 public:
 
 	void start_webcam(int webcam_id);
@@ -35,7 +37,10 @@ public:
 	bool load_camparam(string filename, Mat& cam, Mat& dist);
 
 	void createChArUcoBoard();
+	void detect_markers(int cam_id); //based on calibrate_board to start
+
 	void calibrate_board(int cam_id);
+
 
 	void transform_to_image(Mat pt3d_mat, Point2f& pt2d);
 	void transform_to_image(vector<Mat> pts3d_mat, vector<Point2f>& pts2d);

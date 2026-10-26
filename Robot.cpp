@@ -114,9 +114,9 @@ void CRobot::drawBox(Mat& im, std::vector<Mat> box3d, Scalar colour)
 	std::size_t draw_box2[] = { 1,2,3,0,5,6,7,4,4,5,6,7 };
 
 	// If Virtual Camera
-	_virtualcam.transform_to_image(box3d, box2d);
+	//_virtualcam.transform_to_image(box3d, box2d); //Commented out.
 	// If Real Camera
-	//_realcam.transform_to_image();
+	_realcam.transform_to_image(box3d, box2d);
 
 	for (int i = 0; i < 12; i++)
 	{
@@ -127,18 +127,22 @@ void CRobot::drawBox(Mat& im, std::vector<Mat> box3d, Scalar colour)
 	}
 }
 
-void CRobot::drawCoord(Mat& im, std::vector<Mat> coord3d)
+void CRobot::drawCoord(Mat& im, std::vector<Mat> coord3d) //gets called elsewhere, draws the coordinate axes
 {
 	Point2f O, X, Y, Z;
 
 	// If Virtual Camera
-	_virtualcam.transform_to_image(coord3d.at(0), O);
-	_virtualcam.transform_to_image(coord3d.at(1), X);
-	_virtualcam.transform_to_image(coord3d.at(2), Y);
-	_virtualcam.transform_to_image(coord3d.at(3), Z);
+	//_virtualcam.transform_to_image(coord3d.at(0), O);
+	//_virtualcam.transform_to_image(coord3d.at(1), X);
+	//_virtualcam.transform_to_image(coord3d.at(2), Y);
+	//_virtualcam.transform_to_image(coord3d.at(3), Z);
 
 	// If Real Camera
 	//_realcam.transform_to_image();
+	_realcam.transform_to_image(coord3d.at(0), O);
+	_realcam.transform_to_image(coord3d.at(1), X);
+	_realcam.transform_to_image(coord3d.at(2), Y);
+	_realcam.transform_to_image(coord3d.at(3), Z);
 
 	line(im, O, X, CV_RGB(255, 0, 0), 1); // X=RED
 	line(im, O, Y, CV_RGB(0, 255, 0), 1); // Y=GREEN
@@ -199,9 +203,10 @@ void CRobot::draw_simple_robot()
 	std::vector<Mat> O = createCoord();
 	
 
-	_realcam.get_image(im);
+	_realcam.get_image(im); //this was uncommented out, gets an image, that can then be drawn upon later
+	//get rvec and tvec;
 
-	//realcam.trackmarkers(im, get rvec and tvec); Live tracking of markers.
+	_realcam.detect_markers(0);
 
 
 

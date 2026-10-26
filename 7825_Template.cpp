@@ -58,6 +58,7 @@ void lab4(int cam_id)
 
     while (exit_key != 'q')
         {
+        robot.rotate_simple_robot();
         robot.draw_simple_robot();
         exit_key = waitKey(10);
         }

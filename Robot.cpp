@@ -206,6 +206,9 @@ void CRobot::create_simple_robot()
 
 }
 
+
+
+
 void CRobot::draw_simple_robot()
 {
 	Mat im;
@@ -269,6 +272,21 @@ void CRobot::draw_simple_robot()
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 // LAB4
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
+void CRobot::rotate_simple_robot()
+	{
+	//create rotating HT
+	Mat rotation_HT = createHT(
+		Vec3d(0.0, 0.0, 0.0),
+		Vec3d(0.0, 0.0, 5.0) //rotate about the z axis of the world frame.
+	);
+
+	//go through each of the boxes and rotate them about the world frame's z axis.
+	for (size_t i = 0; i < _simple_robot.size(); i++)
+		{
+		transformPoints(_simple_robot.at(i), rotation_HT);
+		}
+	}
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 // LAB5

@@ -22,6 +22,11 @@ CCameraReal::CCameraReal()
 
 	_draw_on_board = false;
 	_draw_markers = true;
+
+	//some trackbar values
+	_board_x_ui = 1;
+	_board_y_ui = 1;
+	_board_z_ui = 1;
 }
 
 CCameraReal::~CCameraReal()
@@ -151,6 +156,16 @@ void CCameraReal::detect_markers(int cam_id)
 				{
 				_rvec = rvec;
 				_tvec = tvec;
+
+				// board origin in meters (or whatever units your board measurements use)
+				_board_x_val = tvec.at<double>(0, 0);
+				_board_y_val = tvec.at<double>(1, 0);
+				_board_z_val = tvec.at<double>(2, 0);
+
+				_board_x_ui = static_cast<int>(_board_x_val * 1000.0);
+				_board_y_ui = static_cast<int>(_board_y_val * 1000.0);
+				_board_z_ui = static_cast<int>(_board_z_val * 1000.0);
+
 				}
 			}
 		catch (...)
@@ -372,6 +387,18 @@ void CCameraReal::update_settings(Mat &im)
 
 	cvui::window(im, _camera_setting_window.x, _camera_setting_window.y, 210, 180, "Real Camera Settings");
 	
+	_camera_setting_window.y += 45;
+	cvui::trackbar(im, _camera_setting_window.x, _camera_setting_window.y, 180, &_board_x_ui, -500, 500);
+	cvui::text(im, _camera_setting_window.x + 180, _camera_setting_window.y + 20, "X");
+
+	_camera_setting_window.y += 45;
+	cvui::trackbar(im, _camera_setting_window.x, _camera_setting_window.y, 180, &_board_y_ui, -500, 500);
+	cvui::text(im, _camera_setting_window.x + 180, _camera_setting_window.y + 20, "Y");
+
+	_camera_setting_window.y += 45;
+	cvui::trackbar(im, _camera_setting_window.x, _camera_setting_window.y, 180, &_board_z_ui, -500, 500);
+	cvui::text(im, _camera_setting_window.x + 180, _camera_setting_window.y + 20, "Z");
+
 	_camera_setting_window.x = 5;
 	_camera_setting_window.y += 25;
 	cvui::checkbox(im, _camera_setting_window.x, _camera_setting_window.y, "Draw on Board", &_draw_on_board);

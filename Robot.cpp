@@ -11,6 +11,7 @@ CRobot::CRobot()
 	// Create image and window for drawing
 	_image_size = Size(1280, 720);
 
+
 	_canvas = cv::Mat::zeros(_image_size, CV_8UC3);
 	cv::namedWindow(CANVAS_NAME);
 	cvui::init(CANVAS_NAME);
@@ -235,7 +236,13 @@ void CRobot::draw_simple_robot()
 	im.copyTo(_canvas);
 
 
+	//get current settings for x y and z in mm, and 
+
+
 	_virtualcam.update_settings(_canvas);
+
+	//need to set those values to what i get... probably inside the function
+	_realcam.update_settings(_canvas);
 
 	//for drawing robot
 	std::vector<Scalar> colors = {
@@ -263,7 +270,7 @@ void CRobot::draw_simple_robot()
 
 	drawCoord(_canvas, O); // added to draw coordinates
 
-	//_realcam.update_settings(_canvas);
+	_realcam.update_settings(_canvas); //uncommented out for detction.
 	update_settings(_canvas);
 
 	cv::imshow(CANVAS_NAME, _canvas);

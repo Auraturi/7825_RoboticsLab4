@@ -28,6 +28,14 @@ private:
 
 	Mat _rvec, _tvec; //Eth
 
+	// for ui use
+	double _board_x_val;
+	double _board_y_val;
+	double _board_z_val;
+	int _board_x_ui;
+	int _board_y_ui;
+	int _board_z_ui;
+
 public:
 	const Mat& get_rvec() const { return _rvec; }
 	const Mat& get_tvec() const { return _tvec; }

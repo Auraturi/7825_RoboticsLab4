@@ -54,12 +54,12 @@ void lab4(int cam_id)
 
     CRobot robot;
 
-    robot.create_simple_robot();
+    robot.create_simple_robot_lab4();
 
     while (exit_key != 'q')
         {
-        robot.rotate_simple_robot();
-        robot.draw_simple_robot();
+        robot.rotate_simple_robot_lab4();
+        robot.draw_simple_robot_lab4();
         exit_key = waitKey(10);
         }
 

@@ -59,7 +59,9 @@ public:
 	// Lab 4
 
 	void draw();
-	void rotate_simple_robot();
+	void create_simple_robot_lab4();
+	void draw_simple_robot_lab4();
+	void rotate_simple_robot_lab4();
 
 	////////////////////////////////////
 	// Lab 5

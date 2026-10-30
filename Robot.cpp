@@ -212,6 +212,66 @@ void CRobot::create_simple_robot()
 
 void CRobot::draw_simple_robot()
 {
+	Mat im_raw;
+
+	_canvas = cv::Mat::zeros(_image_size, CV_8UC3) + CV_RGB(60, 60, 60);
+
+	// 1) Get the webcam image
+	_realcam.get_image(im_raw);
+
+	// 2) Detect the board pose before drawing
+	_realcam.detect_markers(0);
+
+	// 3) If no valid pose, still draw the image and return
+	if (_realcam.get_rvec().empty() || _realcam.get_tvec().empty())
+		{
+		if (!im_raw.empty())
+			{
+			// Put the webcam image at the original location
+			im_raw.copyTo(_canvas(Rect(0, 0, im_raw.cols, im_raw.rows)));
+			}
+
+		_realcam.update_settings(_canvas);
+		update_settings(_canvas);
+
+		cv::imshow(CANVAS_NAME, _canvas);
+		return;
+		}
+
+	// 4) Put the webcam image at its original location
+	if (!im_raw.empty())
+		{
+		im_raw.copyTo(_canvas(Rect(0, 0, im_raw.cols, im_raw.rows)));
+		}
+
+	// 5) Draw robot on the image
+	std::vector<Scalar> colors = {
+		CV_RGB(100, 0, 0),
+		CV_RGB(170, 0, 0),
+		CV_RGB(0, 0, 0),
+		CV_RGB(255, 0, 0),
+		CV_RGB(0, 255, 0),
+		CV_RGB(0, 0, 255),
+		};
+
+	for (size_t i = 0; i < _simple_robot.size(); i++)
+		{
+		drawBox(_canvas, _simple_robot.at(i), colors.at(i));
+		}
+
+	// 6) Draw coordinate axes
+	std::vector<Mat> O = createCoord();
+	drawCoord(_canvas, O);
+
+	// 7) Draw the UI to the right side
+	_realcam.update_settings(_canvas);
+	update_settings(_canvas);
+
+	cv::imshow(CANVAS_NAME, _canvas);
+
+
+	/* //Old draw_simple_robot()
+
 	Mat im;
 
 	_canvas = cv::Mat::zeros(_image_size, CV_8UC3) + CV_RGB(60, 60, 60);
@@ -222,15 +282,10 @@ void CRobot::draw_simple_robot()
 	_realcam.get_image(im); //this was uncommented out, gets an image, that can then be drawn upon later
 	//get rvec and tvec;
 
-	_realcam.detect_markers(0);
+	//_realcam.detect_markers(0);
 	
 	_realcam.detect_markers(0);
-
-	if (_realcam.get_rvec().empty() || _realcam.get_tvec().empty())
-		{
-		cv::imshow(CANVAS_NAME, _canvas);
-		return;
-		}
+	
 
 
 	im.copyTo(_canvas);
@@ -274,6 +329,7 @@ void CRobot::draw_simple_robot()
 	update_settings(_canvas);
 
 	cv::imshow(CANVAS_NAME, _canvas);
+	*/
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -303,7 +359,8 @@ void CRobot::update_settings(Mat& im)
 {
 	Point _setting_window;
 
-	_setting_window.x = im.size().width - 200;
+	_setting_window.x = im.size().width - 220;
+	_setting_window.y = 220;
 	cvui::window(im, _setting_window.x, _setting_window.y, 200, 450, "Robot Settings");
 
 	_setting_window.x += 5;

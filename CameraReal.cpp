@@ -380,8 +380,8 @@ void CCameraReal::update_settings(Mat &im)
 {	
 	Point _camera_setting_window;
 
-	_camera_setting_window.x = 0;
-	_camera_setting_window.y = 380;
+	_camera_setting_window.x = im.size().width - 220;
+	_camera_setting_window.y = 20;
 
 	if (im.empty() == true) { return; }
 

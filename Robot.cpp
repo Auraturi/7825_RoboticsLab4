@@ -288,6 +288,7 @@ void CRobot::draw_simple_robot()
 	// 7) Draw the UI to the right side
 	_realcam.update_settings(_canvas);
 	update_settings(_canvas);
+	
 
 	cv::imshow(CANVAS_NAME, _canvas);
 

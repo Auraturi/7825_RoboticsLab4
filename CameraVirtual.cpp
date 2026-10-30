@@ -167,10 +167,12 @@ void CCameraVirtual::update_settings(Mat& im)
 	bool track_board = false;
 	Point _camera_setting_window;
 
+	_camera_setting_window.x = im.cols - 420;
+	_camera_setting_window.y = 0;
 	cvui::window(im, _camera_setting_window.x, _camera_setting_window.y, 200, 425, "Virtual Camera Settings");
 
-	_camera_setting_window.x = 5;
-	_camera_setting_window.y = 20;
+	_camera_setting_window.x += 5;
+	_camera_setting_window.y += 20;
 	cvui::trackbar(im, _camera_setting_window.x, _camera_setting_window.y, 180, &_cam_setting_f, 1, 20);
 	cvui::text(im, _camera_setting_window.x + 180, _camera_setting_window.y + 20, "F");
 

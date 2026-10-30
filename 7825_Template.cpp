@@ -71,9 +71,14 @@ void lab5(int cam_id)
   char exit_key = -1;
   CRobot robot;
 
+  // Part A: build the SCARA boxes. Starts on the virtual camera with joint sliders,
+  // tick "Draw on ArUco board" in Robot Settings for Part B-B (needs the webcam + board).
+  robot.create_scara();
+
   while (exit_key != 'q')
   {
-    robot.draw();
+    // Part A + B: draw the SCARA, handle sliders, Reset, Animate and the board checkbox
+    robot.draw_scara();
 
     exit_key = waitKey(10);
   }

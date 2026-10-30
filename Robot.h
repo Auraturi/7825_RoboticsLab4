@@ -45,8 +45,27 @@ private:
 	// LAB 5
 	
 	int _do_animate; // Animation state machine
-	
+
 	void update_settings(Mat& im);
+
+	// Part A-A: SCARA model. Each box is stored in its own joint frame,
+	// and is moved into place by the joint transforms every frame.
+	vector<vector<Mat>> _scara_links;	// pedestal, link 1, link 2, link 3 (quill)
+	vector<Scalar> _scara_colors;		// one colour per box above
+
+	// Part A-C: slider values. _joint[0..2] in degrees, _joint[3] (prismatic) in mm
+	int _joint[4];
+
+	// Part B-A: how far joint 2 has turned in the 0 -> 360 animation step (degrees)
+	int _anim_count;
+
+	// Part B-B: true = draw on the ArUco board with the webcam, false = virtual camera
+	bool _draw_on_board;
+
+	std::vector<Mat> scara_transforms(Vec4d joints);	// Part A-A: world pose of every joint frame
+	Vec4d get_joints();									// Part A-C: slider values -> (deg, deg, deg, m)
+	void update_scara_settings(Mat& im);				// Part A-C: SCARA sliders, Reset, Animate, pose readout
+	void animate_scara();								// Part B-A: animation state machine
 
 public:
 	////////////////////////////////////
@@ -67,7 +86,9 @@ public:
 	////////////////////////////////////
 	// Lab 5
 
-	// void fkine(); // Input joint variables, output end effector pose
+	void create_scara();		// Part A-A: build the SCARA boxes
+	void draw_scara();			// Part A-A / Part B-B: draw on the virtual camera or the ArUco board
+	Vec4d fkin(Vec4d joints);	// Part A-B: Input joint variables, output end effector pose (x, y, z, theta)
 
 	////////////////////////////////////
 	// Lab 6

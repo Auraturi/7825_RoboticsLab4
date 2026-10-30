@@ -8,7 +8,16 @@
 
 CCameraVirtual::CCameraVirtual()
 {
-	// Initialize with a default camera image size 
+	// Default view (Lab 3 simple robot). Lab 5 changes it with set_default_view().
+	_default_f = 3;			// units in mm
+	_default_x = 184;		// units in mm
+	_default_y = -368;		// units in mm
+	_default_z = -32;		// units in mm
+	_default_roll = -78;	// units in degrees, gamma Y
+	_default_pitch = 0;		// units in degrees, beta B
+	_default_yaw = 18;		// units in degrees, yaw A
+
+	// Initialize with a default camera image size
 	init(Size(1280, 720));
 }
 
@@ -23,20 +32,20 @@ void CCameraVirtual::init (Size image_size)
 
 	_cam_setting_f = 0;
 
-	_cam_setting_x = 184; // units in mm
-	_cam_setting_y = -368; // units in mm
-	_cam_setting_z = -32; // units in mm
+	_cam_setting_x = _default_x; // units in mm
+	_cam_setting_y = _default_y; // units in mm
+	_cam_setting_z = _default_z; // units in mm
 
-	_cam_setting_roll = -78; // units in degrees, gamma Y
-	_cam_setting_pitch = 0; // units in degrees, beta B
-	_cam_setting_yaw = 18; // units in degrees, yaw A
+	_cam_setting_roll = _default_roll; // units in degrees, gamma Y
+	_cam_setting_pitch = _default_pitch; // units in degrees, beta B
+	_cam_setting_yaw = _default_yaw; // units in degrees, yaw A
 
 	lookAt = false; //lookAt functionality, if true, the camera will look at the origin (0,0,0) when moving around. impacts the extrinsic matrix calculation.
 
 	//////////////////////////////////////
 	// Virtual Camera intrinsic
 
-	_cam_setting_f = 3; // Units are mm, convert to m by dividing 1000
+	_cam_setting_f = _default_f; // Units are mm, convert to m by dividing 1000
 
 	_pixel_size = 0.0000046f; // Units of m
 	_principal_point = Point2f(image_size / 2);
@@ -46,6 +55,30 @@ void CCameraVirtual::init (Size image_size)
 	//////////////////////////////////////
 	// Virtual Camera Extrinsic
 
+	calculate_extrinsic();
+}
+
+// Lab 5: store a new default view and switch to it now. Reset (init) will come back to this view.
+void CCameraVirtual::set_default_view(int f, int x, int y, int z, int roll, int pitch, int yaw)
+{
+	_default_f = f;
+	_default_x = x;
+	_default_y = y;
+	_default_z = z;
+	_default_roll = roll;
+	_default_pitch = pitch;
+	_default_yaw = yaw;
+
+	_cam_setting_f = f;
+	_cam_setting_x = x;
+	_cam_setting_y = y;
+	_cam_setting_z = z;
+	_cam_setting_roll = roll;
+	_cam_setting_pitch = pitch;
+	_cam_setting_yaw = yaw;
+	lookAt = false;
+
+	calculate_intrinsic();
 	calculate_extrinsic();
 }
 

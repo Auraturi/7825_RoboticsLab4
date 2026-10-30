@@ -35,6 +35,15 @@ private:
 
 	bool lookAt; // for lookAt functionality, if true, the camera will look at the origin (0,0,0) when moving around.
 
+	// Lab 5: view that init() / the Reset button return to (f in mm, x y z in mm, angles in degrees)
+	int _default_f;
+	int _default_x;
+	int _default_y;
+	int _default_z;
+	int _default_roll;
+	int _default_pitch;
+	int _default_yaw;
+
 public:
 	void init(Size image_size);
 
@@ -43,5 +52,8 @@ public:
 
 	void update_settings(Mat& im);
 	Mat createHT_VCam(Vec3d t, Vec3d r); //added from CRobot to be able to use here if needed.
+
+	// Lab 5: change the default view (used by create_scara so the whole SCARA is in frame) and apply it now
+	void set_default_view(int f, int x, int y, int z, int roll, int pitch, int yaw);
 };
 

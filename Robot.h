@@ -25,6 +25,7 @@ private:
   // LAB 3
 	
 	vector<vector<Mat>> _simple_robot;
+	bool _use_virtual_camera;
 
 	CCameraVirtual _virtualcam;
 	CCameraReal _realcam;

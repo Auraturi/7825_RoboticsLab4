@@ -17,6 +17,7 @@ CRobot::CRobot()
 	cvui::init(CANVAS_NAME);
 
 	_virtualcam.init(_image_size); //matches canvas size to the virtual camera size
+	_use_virtual_camera = true;
 
 	init();
 }
@@ -114,10 +115,10 @@ void CRobot::drawBox(Mat& im, std::vector<Mat> box3d, Scalar colour)
 	std::size_t draw_box1[] = { 0,1,2,3,4,5,6,7,0,1,2,3 };
 	std::size_t draw_box2[] = { 1,2,3,0,5,6,7,4,4,5,6,7 };
 
-	// If Virtual Camera
-	//_virtualcam.transform_to_image(box3d, box2d); //Commented out.
-	// If Real Camera
-	_realcam.transform_to_image(box3d, box2d);
+	if (_use_virtual_camera)
+		_virtualcam.transform_to_image(box3d, box2d);
+	else
+		_realcam.transform_to_image(box3d, box2d);
 
 	for (int i = 0; i < 12; i++)
 	{
@@ -132,18 +133,20 @@ void CRobot::drawCoord(Mat& im, std::vector<Mat> coord3d) //gets called elsewher
 {
 	Point2f O, X, Y, Z;
 
-	// If Virtual Camera
-	//_virtualcam.transform_to_image(coord3d.at(0), O);
-	//_virtualcam.transform_to_image(coord3d.at(1), X);
-	//_virtualcam.transform_to_image(coord3d.at(2), Y);
-	//_virtualcam.transform_to_image(coord3d.at(3), Z);
-
-	// If Real Camera
-	//_realcam.transform_to_image();
-	_realcam.transform_to_image(coord3d.at(0), O);
-	_realcam.transform_to_image(coord3d.at(1), X);
-	_realcam.transform_to_image(coord3d.at(2), Y);
-	_realcam.transform_to_image(coord3d.at(3), Z);
+	if (_use_virtual_camera)
+		{
+		_virtualcam.transform_to_image(coord3d.at(0), O);
+		_virtualcam.transform_to_image(coord3d.at(1), X);
+		_virtualcam.transform_to_image(coord3d.at(2), Y);
+		_virtualcam.transform_to_image(coord3d.at(3), Z);
+		}
+	else
+		{
+		_realcam.transform_to_image(coord3d.at(0), O);
+		_realcam.transform_to_image(coord3d.at(1), X);
+		_realcam.transform_to_image(coord3d.at(2), Y);
+		_realcam.transform_to_image(coord3d.at(3), Z);
+		}
 
 	line(im, O, X, CV_RGB(255, 0, 0), 1); // X=RED
 	line(im, O, Y, CV_RGB(0, 255, 0), 1); // Y=GREEN
@@ -154,11 +157,7 @@ void CRobot::create_simple_robot()
 {
 	//below is added by Ted
 	_simple_robot.clear();
-
-	Mat board_align = createHT(
-		Vec3d(0.0, 0.0, 0.0),
-		Vec3d(180.0, 0.0, 90.0)
-		);
+	_use_virtual_camera = true;
 
 	//Making all the transforms I need
 	Mat base_transform = createHT(
@@ -196,12 +195,6 @@ void CRobot::create_simple_robot()
 	for (int i = 0; i < 6; i++) {
 		std::vector<Mat> box = createBox(0.05f, 0.05f, 0.05f);
 		transformPoints(box, bodyTransforms.at(i));
-
-		// Align the robot model into the board coordinate system
-		for (int j = 0; j < box.size(); j++) {
-			box.at(j) = board_align * box.at(j);
-			}
-
 		_simple_robot.push_back(box);
 	}
 
@@ -211,6 +204,7 @@ void CRobot::create_simple_robot_lab4()
 	{
 	//below is added by Ted
 	_simple_robot.clear();
+	_use_virtual_camera = false;
 
 	Mat board_align = createHT(
 		Vec3d(0.0, 0.0, 0.0),
@@ -269,39 +263,10 @@ void CRobot::create_simple_robot_lab4()
 
 void CRobot::draw_simple_robot()
 {
-	Mat im_raw;
-
 	_canvas = cv::Mat::zeros(_image_size, CV_8UC3) + CV_RGB(60, 60, 60);
 
-	// 1) Get the webcam image
-	_realcam.get_image(im_raw);
+	_virtualcam.update_settings(_canvas);
 
-	// 2) Detect the board pose before drawing
-	_realcam.detect_markers(0);
-
-	// 3) If no valid pose, still draw the image and return
-	if (_realcam.get_rvec().empty() || _realcam.get_tvec().empty())
-		{
-		if (!im_raw.empty())
-			{
-			// Put the webcam image at the original location
-			im_raw.copyTo(_canvas(Rect(0, 0, im_raw.cols, im_raw.rows)));
-			}
-
-		_realcam.update_settings(_canvas);
-		update_settings(_canvas);
-
-		cv::imshow(CANVAS_NAME, _canvas);
-		return;
-		}
-
-	// 4) Put the webcam image at its original location
-	if (!im_raw.empty())
-		{
-		im_raw.copyTo(_canvas(Rect(0, 0, im_raw.cols, im_raw.rows)));
-		}
-
-	// 5) Draw robot on the image
 	std::vector<Scalar> colors = {
 		CV_RGB(100, 0, 0),
 		CV_RGB(170, 0, 0),

@@ -469,6 +469,7 @@
     <None Include=".github\upgrades\scenarios\cppbuildtoolsupgrade\tasks\02-camera-virtual-conversions\progress-details.md" />
     <None Include=".github\upgrades\scenarios\cppbuildtoolsupgrade\tasks\03-robot-conversions\progress-details.md" />
     <None Include=".github\upgrades\scenarios\cppbuildtoolsupgrade\tasks\04-build-validation\progress-details.md" />
+    <None Include="copilotdocs\Lab5_C_Experiment_Recreation_Guide.html" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

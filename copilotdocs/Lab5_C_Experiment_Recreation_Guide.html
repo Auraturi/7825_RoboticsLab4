@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lab 5 C Experiment: SCARA Forward Kinematics and OpenCV Reconstruction Guide</title>
+<style>
+:root { --ink:#1f2937; --muted:#4b5563; --blue:#174ea6; --light:#eef5ff; --code:#f3f4f6; --border:#d1d5db; }
+* { box-sizing:border-box; }
+body { max-width:1100px; margin:0 auto; padding:42px 54px; color:var(--ink); font:16px/1.55 "Segoe UI",Arial,sans-serif; }
+h1 { color:#123b73; font-size:34px; line-height:1.15; }
+h2 { color:#174ea6; border-bottom:2px solid #dbeafe; padding-bottom:5px; margin-top:38px; }
+h3 { color:#24528b; margin-top:28px; }
+h4 { margin-bottom:5px; }
+.subtitle { color:var(--muted); font-size:19px; }
+.meta { background:var(--light); border-left:5px solid var(--blue); padding:14px 18px; margin:20px 0; }
+.toc { background:#f8fafc; border:1px solid var(--border); padding:16px 24px; }
+code, pre { font-family:Consolas,"Courier New",monospace; }
+code { background:var(--code); padding:1px 4px; }
+pre { background:#111827; color:#f9fafb; padding:16px; overflow-x:auto; border-radius:5px; font-size:13px; line-height:1.45; }
+.note, .warning, .exercise { padding:13px 17px; margin:16px 0; border-left:5px solid; }
+.note { background:#eff6ff; border-color:#2563eb; }
+.warning { background:#fff7ed; border-color:#ea580c; }
+.exercise { background:#f0fdf4; border-color:#16a34a; }
+table { border-collapse:collapse; width:100%; margin:14px 0 22px; }
+th,td { border:1px solid var(--border); padding:8px 10px; vertical-align:top; }
+th { background:#e5edf8; text-align:left; }
+.small { color:var(--muted); font-size:14px; }
+li { margin:5px 0; }
+@media print { body { padding:0; max-width:none; } h2 { break-before:auto; } pre { white-space:pre-wrap; } }
+</style>
+</head>
+<body>
+<h1>Lab 5 C Experiment: Recreating the SCARA/OpenCV Project</h1>
+<p class="subtitle">A learning guide for rebuilding the final state from the parent commit</p>
+<div class="meta">
+<strong>Source examined:</strong> branch <code>Lab5_C_Experiment</code> (the requested <code>lab5_c_experiment</code> branch), last commit<br>
+<strong>Commit:</strong> <code>56f7f91a9dc0e9c4324fbdd7c3af1ef44f7dd3fc</code><br>
+<strong>Commit message:</strong> Lab 5: SCARA robot forward kinematics (Part A and Part B)<br>
+<strong>Primary files:</strong> <code>Robot.cpp</code>, <code>Robot.h</code>, <code>CameraVirtual.cpp</code>, <code>CameraVirtual.h</code>, <code>7825_Template.cpp</code>, plus the existing <code>CameraReal.cpp/.h</code> APIs.
+</div>
+<div class="note"><strong>How to use this guide:</strong> Do not read the commit as one large block of C++. Read it as a pipeline: define geometry, define coordinate frames, chain transforms, project points through a camera, then add UI and animation around that stable core. The fastest way to learn is to reproduce one layer at a time and verify it before adding the next.</div>
+<div class="toc"><strong>Contents</strong><ol>
+<li><a href="#goal">What the commit accomplishes</a></li><li><a href="#mindset">The right reconstruction mindset</a></li><li><a href="#foundation">Existing OpenCV foundation</a></li><li><a href="#model">Building the SCARA model</a></li><li><a href="#kinematics">Coordinate frames and forward kinematics</a></li><li><a href="#ui">Controls, animation, and frame loop</a></li><li><a href="#cameras">Virtual camera and RealCam/ArUco reuse</a></li><li><a href="#types">Types and variables reference</a></li><li><a href="#recreate">Recreate it yourself</a></li><li><a href="#debug">Debugging and common mistakes</a></li><li><a href="#questions">Exercises and next steps</a></li></ol></div>
+
+<h2 id="goal">1. What the commit accomplishes</h2>
+<p>Before this commit, the project had the Lab 3 virtual-camera robot and the Lab 4 webcam/ChArUco augmented-reality robot. The Lab 5 commit adds a four-joint SCARA robot and connects it to both camera paths.</p>
+<table><tr><th>Requirement</th><th>Implementation</th><th>Why it matters</th></tr>
+<tr><td>Part A-A: model and transforms</td><td><code>create_scara()</code>, <code>scara_transforms()</code>, <code>draw_scara()</code></td><td>Separates geometry from pose, so sliders can move the same model every frame.</td></tr>
+<tr><td>Part A-B: forward kinematics</td><td><code>fkin(Vec4d joints)</code></td><td>Computes the tool position and heading from joint values.</td></tr>
+<tr><td>Part A-C: interactive control</td><td><code>_joint[4]</code>, CVUI trackbars, reset, pose readout</td><td>Lets a human vary inputs and see whether the math behaves correctly.</td></tr>
+<tr><td>Part B-A: animation</td><td><code>step_toward()</code>, <code>animate_scara()</code>, <code>_do_animate</code></td><td>Turns a sequence of target poses into smooth frame-by-frame motion.</td></tr>
+<tr><td>Part B-B: board drawing</td><td>webcam image, <code>detect_markers()</code>, <code>get_rvec()</code>/<code>get_tvec()</code>, RealCam projection</td><td>Uses the existing Lab 4 pose-estimation path to place the virtual robot on a physical board.</td></tr>
+<tr><td>Useful camera reset</td><td><code>CCameraVirtual::set_default_view()</code></td><td>Allows the SCARA setup to choose a view that fits the larger model.</td></tr>
+</table>
+
+<h2 id="mindset">2. The right reconstruction mindset</h2>
+<h3>Build from stable contracts</h3>
+<p>Each layer should have a clear input and output:</p>
+<ol><li><strong>Geometry:</strong> <code>createBox(w,h,d)</code> returns eight homogeneous 3D vertices.</li><li><strong>Pose:</strong> <code>scara_transforms(joints)</code> returns the world pose of each joint frame.</li><li><strong>Projection:</strong> a camera's <code>transform_to_image</code> converts 3D points to pixels.</li><li><strong>Rendering:</strong> <code>drawBox</code> and <code>drawCoord</code> draw projected points.</li><li><strong>Interaction:</strong> UI changes integer joint values, then the next frame recomputes pose and rendering.</li></ol>
+<p>This means a wrong image can be investigated by asking which contract failed: wrong box vertices, wrong transform chain, wrong camera pose, or wrong drawing/UI order.</p>
+<h3>Use the coordinate-frame diagram mentally</h3>
+<p>The notation <code>wT2</code> means “the transform that expresses frame 2 in world coordinates.” A relative transform such as <code>T12</code> moves from frame 2's parent relationship to the next joint. Chaining is:</p>
+<pre>wT1 = wT0 * T01
+wT2 = wT1 * T12
+wT3 = wT2 * T23
+wT4 = wT3 * T34</pre>
+<p>Read multiplication from left to right as a physical story: start in the world, move to the pedestal/joint height, rotate joint 0, travel along link 1, rotate joint 1, travel along link 2, rotate joint 2, then slide and flip the tool.</p>
+<h3>Keep units explicit</h3>
+<p>The geometry and kinematics use metres. The CVUI sliders use degrees for <code>j0..j2</code> and millimetres for <code>j3</code>. <code>get_joints()</code> is the boundary that converts the prismatic slider from millimetres to metres. Camera settings use millimetres internally and convert to metres when building camera matrices.</p>
+
+<h2 id="foundation">3. Existing OpenCV foundation</h2>
+<h3><code>cv::Mat</code> as both matrix and point container</h3>
+<p>The project represents a 3D homogeneous point as a 4x1 floating-point matrix:</p>
+<pre>Mat p = (Mat1f(4, 1) &lt;&lt; x, y, z, 1);</pre>
+<p>The final <code>1</code> is the homogeneous coordinate. It lets one 4x4 matrix apply rotation and translation together. <code>createHT</code> creates the matrix; <code>transformPoints</code> multiplies every point by it.</p>
+<h3>Homogeneous transform: <code>createHT</code></h3>
+<p><code>CRobot::createHT(Vec3d t, Vec3d r)</code> accepts translation <code>(x,y,z)</code> and Euler angles in degrees. It converts degrees to radians and constructs the convention <code>Rz(A) * Ry(B) * Rx(Y)</code>. The resulting matrix contains a 3x3 rotation, a translation column, and the final homogeneous row.</p>
+<div class="warning"><strong>Do not silently change conventions.</strong> The names roll/pitch/yaw and the comments gamma/beta/alpha are tied to this project's matrix formula. If you use a different Euler order, every camera and robot orientation will disagree even if each individual formula looks reasonable.</div>
+<h3>Drawing helpers reused by Lab 5</h3>
+<table><tr><th>Function</th><th>Role</th><th>Lab 5 usage</th></tr>
+<tr><td><code>createBox</code></td><td>Creates eight corners around the origin.</td><td>Creates pedestal, two horizontal links, and quill.</td></tr>
+<tr><td><code>createCoord</code></td><td>Creates origin plus unit X/Y/Z axis endpoints.</td><td>Draws every joint frame for visual verification.</td></tr>
+<tr><td><code>transformPoints</code></td><td>Mutates a vector of points by a 4x4 transform.</td><td>Moves a local model into its current world pose.</td></tr>
+<tr><td><code>drawBox</code></td><td>Projects vertices and draws the 12 edges.</td><td>Renders each colored SCARA component.</td></tr>
+<tr><td><code>drawCoord</code></td><td>Projects four points and draws RGB axes.</td><td>Shows whether frame chaining is correct.</td></tr>
+</table>
+
+<h2 id="model">4. Building the SCARA model</h2>
+<h3>Dimensions and local geometry</h3>
+<p>The commit defines four file-local constants in metres:</p>
+<pre>SCARA_LINK_LENGTH    = 0.15f   // 15 cm
+SCARA_LINK_SIZE      = 0.03f   // 3 cm square cross-section
+SCARA_PEDESTAL_HEIGHT= 0.135f
+SCARA_JOINT1_HEIGHT  = 0.15f</pre>
+<p><code>create_scara()</code> creates the shapes once. The important design decision is that each movable shape is stored in its own joint frame, rather than permanently transformed into the world. The pedestal is stored in the world frame, link 1 in frame 1, link 2 in frame 2, and the quill in frame 4.</p>
+<pre>std::vector&lt;Mat&gt; link1 = createBox(SCARA_LINK_LENGTH,
+                                   SCARA_LINK_SIZE,
+                                   SCARA_LINK_SIZE);
+transformPoints(link1, createHT(
+    Vec3d(SCARA_LINK_LENGTH / 2, 0.0, 0.0),
+    Vec3d(0.0, 0.0, 0.0)));</pre>
+<p>Because <code>createBox</code> is centered at its origin, shifting by <code>L/2</code> makes the link extend from its joint origin to the next joint. The quill uses <code>-L/2</code> on z because the tool tip is defined as the frame origin and the tool body extends upward while tool z points down.</p>
+<h3>Why model and pose are separated</h3>
+<p>If <code>create_scara()</code> transformed link vertices using the current sliders, then changing a slider would require rebuilding the geometry. Instead, it stores local geometry once and <code>draw_scara()</code> applies the current transform to a temporary copy every frame. This is the same scene-graph idea used in larger graphics engines.</p>
+<h3>OpenCV ownership detail: clone before transforming</h3>
+<pre>std::vector&lt;Mat&gt; box;
+for (const Mat&amp; pt : _scara_links.at(i))
+    box.push_back(pt.clone());
+transformPoints(box, base * T.at(link_frame[i]));</pre>
+<p>OpenCV <code>Mat</code> uses reference-counted data. Copying a <code>Mat</code> object can share its underlying pixels. Since <code>transformPoints</code> mutates its argument, using <code>clone()</code> protects the stored local model from being transformed repeatedly frame after frame.</p>
+
+<h2 id="kinematics">5. Coordinate frames and forward kinematics</h2>
+<h3>The SCARA chain</h3>
+<table><tr><th>Transform</th><th>Translation</th><th>Rotation</th><th>Meaning</th></tr>
+<tr><td><code>wT0</code></td><td>zero</td><td>zero</td><td>World/pedestal base frame.</td></tr>
+<tr><td><code>T01</code></td><td><code>(0,0,0.15)</code></td><td>z by <code>j0</code></td><td>Raise to the horizontal arm and turn joint 0.</td></tr>
+<tr><td><code>T12</code></td><td><code>(0.15,0,0)</code></td><td>z by <code>j1</code></td><td>Travel along link 1 and turn joint 1.</td></tr>
+<tr><td><code>T23</code></td><td><code>(0.15,0,0)</code></td><td>z by <code>j2</code></td><td>Travel along link 2 and turn the wrist.</td></tr>
+<tr><td><code>T34</code></td><td><code>(0,0,-j3)</code></td><td>x by 180°</td><td>Slide the prismatic joint and point tool z downward.</td></tr>
+</table>
+<p><code>scara_transforms</code> keeps all five intermediate frames because rendering needs more than the final answer. The array returned is <code>{wT0,wT1,wT2,wT3,wT4}</code>; the drawing code maps pedestal/link1/link2/quill to indices <code>{0,1,2,4}</code>.</p>
+<h3>Forward kinematics: one output, same chain</h3>
+<p><code>fkin</code> multiplies the four moving transforms directly and extracts:</p>
+<ul><li><code>x = wT4(0,3)</code>, <code>y = wT4(1,3)</code>, <code>z = wT4(2,3)</code>: translation in metres.</li><li><code>theta = atan2(wT4(1,0), wT4(0,0))</code>: heading of the tool x-axis around world z, converted to degrees.</li></ul>
+<pre>Vec4d CRobot::fkin(Vec4d joints)
+{
+    Mat wT4 = T01 * T12 * T23 * T34;
+    return Vec4d(wT4.at&lt;float&gt;(0,3),
+                 wT4.at&lt;float&gt;(1,3),
+                 wT4.at&lt;float&gt;(2,3),
+                 atan2(wT4.at&lt;float&gt;(1,0), wT4.at&lt;float&gt;(0,0))
+                   * 180.0 / CV_PI);
+}</pre>
+<div class="exercise"><strong>Sanity check:</strong> with all joints zero, x should be about 0.30 m, y about 0, z about 0.15 m minus the prismatic extension, and the two horizontal links should lie along +x. If this fails, inspect the transform chain before inspecting OpenCV drawing.</div>
+
+<h2 id="ui">6. Controls, animation, and the frame loop</h2>
+<h3>Input boundary</h3>
+<p><code>_joint[0..2]</code> hold degree values directly. <code>_joint[3]</code> holds millimetres because that is convenient for a CVUI slider. <code>get_joints()</code> returns <code>Vec4d(j0,j1,j2,j3/1000)</code>, keeping kinematics in metres.</p>
+<p><code>update_scara_settings</code> creates four trackbars, Reset, Animate, a board checkbox, and the <code>fkin</code> readout. It calls <code>animate_scara()</code> and then exactly one <code>cvui::update()</code>. Calling CVUI update more than once per frame can break button behavior.</p>
+<h3>Animation as a state machine</h3>
+<p><code>_do_animate</code> is a state number, not a boolean. The sequence is:</p>
+<pre>1: j0 0 -&gt; 180     2: j0 180 -&gt; -180   3: j0 -180 -&gt; 0
+4: j1 0 -&gt; 180     5: j1 180 -&gt; -180   6: j1 -180 -&gt; 0
+7: j2 0 -&gt; 360     8: j3 0 -&gt; 150 mm  9/default: reset home</pre>
+<p><code>step_toward</code> prevents overshoot with <code>min</code>/<code>max</code> and returns true only when the target is reached. State 7 wraps the displayed j2 slider after +180 because the slider range is -180..180 while the animation needs a full 360° turn.</p>
+<h3>The per-frame draw sequence</h3>
+<ol><li>Clear the canvas.</li><li>Choose virtual or real projection from <code>_draw_on_board</code>.</li><li>If real mode, copy the webcam image and call <code>detect_markers(0)</code>.</li><li>Require a valid rvec/tvec before drawing onto the board.</li><li>Compute joint transforms.</li><li>Clone local boxes, transform them, and draw them.</li><li>Draw all frame axes and the yellow forward-kinematics tip marker.</li><li>Draw the selected camera settings and robot settings.</li><li>Show the canvas.</li></ol>
+
+<h2 id="cameras">7. Virtual camera and RealCam/ArUco reuse</h2>
+<h3>Virtual camera pipeline</h3>
+<p><code>CCameraVirtual</code> stores intrinsic and extrinsic matrices. <code>calculate_intrinsic</code> uses focal length, pixel size, and principal point. <code>calculate_extrinsic</code> represents camera position/orientation. To project a world point, the code inverts the camera-to-world extrinsic, multiplies by intrinsic, then performs the homogeneous divide:</p>
+<pre>uvw = K * inverse(extrinsic) * point
+u = uvw[0] / uvw[2]
+v = uvw[1] / uvw[2]</pre>
+<p><code>set_default_view(f,x,y,z,roll,pitch,yaw)</code> stores defaults, sets the current controls immediately, disables look-at mode, and recalculates both matrices. In <code>create_scara()</code> it is called with <code>(3,250,-480,203,-101,0,0)</code> so Reset returns to a SCARA-friendly view instead of the earlier Lab 3 view.</p>
+<h3>RealCam pipeline</h3>
+<p>The existing <code>CCameraReal</code> API supplies the complete Lab 4 path:</p>
+<ol><li><code>get_image(Mat&amp;)</code> reads one webcam frame.</li><li><code>detect_markers(int)</code> detects ChArUco corners, matches image/object points, and calls <code>solvePnP</code>.</li><li>Successful pose estimation stores <code>_rvec</code> and <code>_tvec</code>.</li><li><code>get_rvec()</code> and <code>get_tvec()</code> let Lab 5 check whether a pose exists.</li><li><code>transform_to_image</code> calls OpenCV <code>projectPoints</code> using calibration and distortion coefficients.</li></ol>
+<p>Lab 5 deliberately does not duplicate marker detection or camera calibration. It reuses the established functions and adds only the orchestration: webcam background, pose guard, board-alignment transform <code>(180°,0°,90°)</code>, and the choice of RealCam projection.</p>
+<div class="warning"><strong>Why the pose guard exists:</strong> a webcam frame can exist even when no board has been detected. Without valid rvec/tvec, projecting the robot would produce invalid or misleading points. The UI message “No ArUco board pose yet” makes that state visible.</div>
+<h3>Board alignment</h3>
+<p>The board's coordinate convention differs from the robot's desired “z upward from the board” convention. The base transform used in Lab 4 and Lab 5 rotates by <code>(180,0,90)</code>. Treat this as a coordinate-convention adapter, not as a robot joint transform.</p>
+
+<h2 id="types">8. Types and variables reference</h2>
+<table><tr><th>Symbol</th><th>Type</th><th>Purpose</th></tr>
+<tr><td><code>CRobot</code></td><td>class</td><td>Owns geometry, joint state, cameras, UI, and the draw loop.</td></tr>
+<tr><td><code>CCameraVirtual</code></td><td>class</td><td>Projects 3D points with a synthetic pinhole camera.</td></tr>
+<tr><td><code>CCameraReal</code></td><td>class</td><td>Owns webcam capture, calibration, ChArUco detection, and real projection.</td></tr>
+<tr><td><code>Mat</code></td><td><code>cv::Mat</code></td><td>OpenCV matrix; used for 4x1 points and 4x4 transforms.</td></tr>
+<tr><td><code>Vec3d</code></td><td>three doubles</td><td>Translation or Euler-angle argument.</td></tr>
+<tr><td><code>Vec4d</code></td><td>four doubles</td><td>Joint tuple or output pose tuple.</td></tr>
+<tr><td><code>Point2f</code></td><td>two floats</td><td>Projected image pixel coordinate.</td></tr>
+<tr><td><code>vector&lt;vector&lt;Mat&gt;&gt; _scara_links</code></td><td>nested vector</td><td>Four local models, each containing eight homogeneous vertices.</td></tr>
+<tr><td><code>_joint[4]</code></td><td>four integers</td><td>UI state: three degrees and one millimetre extension.</td></tr>
+<tr><td><code>_anim_count</code></td><td>int</td><td>Tracks the 0..360 degree wrist animation.</td></tr>
+<tr><td><code>_draw_on_board</code></td><td>bool</td><td>Selects webcam/ArUco mode versus virtual-camera mode.</td></tr>
+<tr><td><code>_use_virtual_camera</code></td><td>bool</td><td>Selects which camera projects boxes and axes.</td></tr>
+<tr><td><code>_rvec</code>, <code>_tvec</code></td><td><code>cv::Mat</code></td><td>Real-camera board pose from <code>solvePnP</code>.</td></tr>
+<tr><td><code>base</code></td><td>4x4 <code>Mat</code></td><td>Identity in virtual mode or board-alignment transform in real mode.</td></tr>
+</table>
+
+<h2 id="recreate">9. Recreate it yourself: an incremental checklist</h2>
+<ol><li>Start from the parent commit and confirm Lab 3/4 still render a simple box robot.</li><li>Add Lab 5 state in <code>Robot.h</code>: local models, colors, four UI joints, animation state, board flag, and declarations.</li><li>Initialize joint values and animation state in <code>init()</code>.</li><li>Add dimensions and implement <code>create_scara()</code>. Render only the local models at home pose first.</li><li>Implement <code>scara_transforms()</code>. Draw coordinate axes at all returned frames; do not add UI yet.</li><li>Implement <code>fkin()</code>. Compare its tip to the end-effector frame and a yellow marker.</li><li>Implement <code>get_joints()</code> and four trackbars. Verify unit conversion with the pose readout.</li><li>Change the draw loop to clone, transform, and render each model every frame.</li><li>Add <code>step_toward</code> and animation states. Test one state at a time.</li><li>Reuse the RealCam APIs: get frame, detect board, check pose, choose board alignment, project with RealCam.</li><li>Add <code>set_default_view</code> to VirtualCam and call it after building the SCARA.</li><li>Finally add the Lab 5 menu entry/loop in <code>7825_Template.cpp</code> and test reset, animation, virtual mode, and board mode.</li></ol>
+<div class="exercise"><strong>Suggested verification after every stage:</strong> change only one joint, predict the visual result before running, then inspect the axis colors and fkin readout. This turns the program into an experiment rather than a black box.</div>
+
+<h2 id="debug">10. Debugging and common mistakes</h2>
+<table><tr><th>Symptom</th><th>Likely cause</th><th>Check</th></tr>
+<tr><td>Robot grows or drifts every frame</td><td>Stored local <code>Mat</code>s were transformed in place.</td><td>Clone each point before calling <code>transformPoints</code>.</td></tr>
+<tr><td>Links are at the wrong height</td><td>Mixed metres and millimetres.</td><td>Inspect <code>get_joints</code>, camera conversions, and constants.</td></tr>
+<tr><td>Tip marker disagrees with quill</td><td><code>fkin</code> and drawing use different transform chains.</td><td>Compare T01/T12/T23/T34 term by term.</td></tr>
+<tr><td>Robot appears mirrored/upside down on board</td><td>Missing or incorrect board alignment.</td><td>Compare the Lab 4 <code>createHT(0,(180,0,90))</code> adapter.</td></tr>
+<tr><td>Nothing appears in board mode</td><td>No valid ChArUco pose, calibration missing, or webcam unavailable.</td><td>Check image, calibration matrices, rvec/tvec, and the status message.</td></tr>
+<tr><td>Virtual view is clipped</td><td>Old Lab 3 camera default does not fit the SCARA.</td><td>Call <code>set_default_view</code> after model creation.</td></tr>
+<tr><td>CVUI buttons act strangely</td><td>Multiple <code>cvui::update()</code> calls per frame.</td><td>Keep one update at the end of the combined robot settings function.</td></tr>
+<tr><td>Pose heading jumps at ±180°</td><td><code>atan2</code> naturally wraps angles.</td><td>Treat -180° and +180° as the same orientation.</td></tr>
+</table>
+
+<h2 id="questions">11. Exercises and next steps</h2>
+<ol><li>Change link length to 0.20 m and update only the dimension constants. Which parts automatically follow?</li><li>Print all five transforms and verify that each translation matches the previous frame plus the next link.</li><li>Temporarily draw only the coordinate axes. Can you identify which axis is the tool tip frame?</li><li>Replace the animation state machine with a list of target joint vectors and compare the tradeoffs.</li><li>Add a unit test for zero joints and a second test for <code>j0=90</code> degrees.</li><li>Use the existing RealCam <code>transform_to_image</code> with one known board-space point and compare it to a hand calculation.</li><li>Implement inverse kinematics as the next layer: start by solving the two planar revolute joints, then handle wrist heading and prismatic height.</li></ol>
+
+<h2>Appendix: compact dependency map</h2>
+<pre>lab5() in 7825_Template.cpp
+  -> CRobot::create_scara()
+       -> createBox(), transformPoints(), createHT()
+       -> CCameraVirtual::set_default_view()
+  -> repeated CRobot::draw_scara()
+       -> get_joints()
+       -> scara_transforms()
+       -> clone local boxes -> transformPoints() -> drawBox()
+       -> drawCoord()
+       -> fkin() -> yellow tip marker
+       -> CCameraVirtual::transform_to_image()
+          OR CCameraReal::transform_to_image()
+       -> camera update_settings(), robot update_scara_settings()
+       -> cvui::update(), imshow(), waitKey()
+
+Real mode additionally:
+  CCameraReal::get_image()
+  CCameraReal::detect_markers()
+    -> ChArUco detector -> matchImagePoints -> solvePnP
+  get_rvec()/get_tvec() pose guard</pre>
+<p class="small">This guide documents the checked-out source and the target commit. It intentionally does not alter application code.</p>
+</body>
+</html>

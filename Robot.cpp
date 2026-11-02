@@ -635,7 +635,7 @@ void CRobot::update_scara_settings(Mat& im)
 
 	_setting_window.x = im.size().width - 220;
 	_setting_window.y = 220;
-	cvui::window(im, _setting_window.x, _setting_window.y, 200, 450, "Robot Settings");
+	cvui::window(im, _setting_window.x, _setting_window.y, 200, 560, "Robot Settings");
 
 	_setting_window.x += 5;
 	_setting_window.y += 20;
@@ -676,17 +676,25 @@ void CRobot::update_scara_settings(Mat& im)
 
 	// Part A-C: end effector pose from fkin()
 	Vec4d pose = fkin(get_joints());
+	double ee_x = pose[0] * 1000.0;
+	double ee_y = pose[1] * 1000.0;
+	double ee_z = pose[2] * 1000.0;
+	double ee_theta = pose[3];
 
 	_setting_window.y += 30;
 	cvui::text(im, _setting_window.x, _setting_window.y, "End effector (fkin)");
 	_setting_window.y += 20;
-	cvui::printf(im, _setting_window.x, _setting_window.y, "X:  %7.1f mm", pose[0] * 1000.0);
-	_setting_window.y += 18;
-	cvui::printf(im, _setting_window.x, _setting_window.y, "Y:  %7.1f mm", pose[1] * 1000.0);
-	_setting_window.y += 18;
-	cvui::printf(im, _setting_window.x, _setting_window.y, "Z:  %7.1f mm", pose[2] * 1000.0);
-	_setting_window.y += 18;
-	cvui::printf(im, _setting_window.x, _setting_window.y, "Th: %7.1f deg", pose[3]);
+	cvui::trackbar(im, _setting_window.x, _setting_window.y, 180, &ee_x, -300.0, 300.0);
+	cvui::text(im, _setting_window.x + 180, _setting_window.y + 20, "X");
+	_setting_window.y += 45;
+	cvui::trackbar(im, _setting_window.x, _setting_window.y, 180, &ee_y, -300.0, 300.0);
+	cvui::text(im, _setting_window.x + 180, _setting_window.y + 20, "Y");
+	_setting_window.y += 45;
+	cvui::trackbar(im, _setting_window.x, _setting_window.y, 180, &ee_z, 0.0, 150.0);
+	cvui::text(im, _setting_window.x + 180, _setting_window.y + 20, "Z");
+	_setting_window.y += 45;
+	cvui::trackbar(im, _setting_window.x, _setting_window.y, 180, &ee_theta, -180.0, 180.0);
+	cvui::text(im, _setting_window.x + 180, _setting_window.y + 20, "Th");
 
 	if (_do_animate != 0)
 	{

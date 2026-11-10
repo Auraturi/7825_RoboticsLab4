@@ -86,6 +86,8 @@ void lab5(int cam_id)
 
 void lab6(int cam_id)
 {  
+    //lab 6 begins
+
 }
 
 void lab7(int cam_id)

@@ -28,6 +28,9 @@ private:
 
 	Mat _rvec, _tvec; //Eth
 
+	// Lab 6 Part B-B: pose of the single tracked marker in the camera frame
+	Mat _marker_rvec, _marker_tvec;
+
 	// for ui use
 	double _board_x_val;
 	double _board_y_val;
@@ -48,6 +51,11 @@ public:
 
 	void createChArUcoBoard();
 	void detect_markers(int cam_id); //based on calibrate_board to start
+
+	// Lab 6 Part B-B: find one ArUco marker in im and solve its pose. Returns true if it was found.
+	bool detect_single_marker(Mat& im, int marker_id, float marker_size);
+	const Mat& get_marker_rvec() const { return _marker_rvec; }
+	const Mat& get_marker_tvec() const { return _marker_tvec; }
 
 	void calibrate_board(int cam_id);
 

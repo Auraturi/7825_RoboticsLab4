@@ -845,3 +845,527 @@ void CRobot::draw_scara()
 
 	cv::imshow(CANVAS_NAME, _canvas);
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+// LAB6 - SCARA robot inverse kinematics
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Part A-B: prismatic joint travel, same as the j3 slider (0 .. 150 mm)
+static const double SCARA_J3_MAX = 0.15;
+
+// Part A-D: straight line animation. Each move goes from wherever the end effector is to the
+// next waypoint (x mm, y mm, z mm, theta deg). All of them are inside the 300 mm reach circle,
+// and a straight line between two points inside a circle stays inside the circle.
+static const int IK_ANIM_STEPS = 60; // frames per straight line move
+static const Vec4d IK_WAYPOINTS[] = {
+	Vec4d(250.0, -50.0, 100.0, 0.0),	// approach the start of the path
+	Vec4d(0.0, 200.0, 100.0, 0.0),		// straight across the workspace at a constant height
+	Vec4d(200.0, 100.0, 20.0, 90.0),	// out and down, turning the tool 90 deg on the way
+	Vec4d(250.0, -50.0, 100.0, 0.0),	// back to the start of the path
+};
+
+// Part B-B: the tracked ArUco marker. Sizes measured off Lab4-charucoboard_and_boxes.pdf,
+// CHECK THESE against the real printout (a wrong MARKER_SIZE scales the marker distance).
+static const int MARKER_ID = 50;
+static const float MARKER_SIZE = 0.021f;		// black square is 21 mm, same as the board markers
+static const float MARKER_BOX_SIZE = 0.03f;		// the paper cube the marker is printed on is 30 mm
+
+// Part A-B: bring an angle back into -180 .. 180 deg (the range of the joint sliders)
+static double wrap_180(double deg)
+{
+	while (deg > 180.0) deg -= 360.0;
+	while (deg < -180.0) deg += 360.0;
+	return deg;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Part A-B: Inverse kinematics (closed form, from Part A-A)
+// Input: pose = (x m, y m, z m, theta deg), the same thing fkin() returns
+// Output: joints = (j0 deg, j1 deg, j2 deg, j3 metres), the same thing fkin() takes
+// Returns false and leaves joints alone if the pose is out of reach.
+//
+// From fkin(), with L = link length, H = joint 1 height:
+//   x = L cos(j0) + L cos(j0 + j1)
+//   y = L sin(j0) + L sin(j0 + j1)
+//   z = H - j3
+//   theta = j0 + j1 + j2
+bool CRobot::ikine(Vec4d pose, Vec4d& joints, bool elbow_flip)
+{
+	double x = pose[0];
+	double y = pose[1];
+	double z = pose[2];
+	double theta = pose[3];
+	double L = SCARA_LINK_LENGTH;
+
+	// j1 (elbow): 2-link planar arm, law of cosines.
+	// Squaring and adding the x and y equations gives x^2 + y^2 = 2 L^2 + 2 L^2 cos(j1)
+	double c1 = (x * x + y * y - 2 * L * L) / (2 * L * L);
+	if (c1 > 1.000001 || c1 < -1.000001)
+		return false; // further away than 2L, cos(j1) would be more than 1
+	c1 = std::max(-1.0, std::min(1.0, c1)); // rounding error right at full stretch
+
+	// acos gives the elbow with j1 >= 0. The mirror image (j1 <= 0) reaches the same point.
+	double j1 = acos(c1);
+	if (elbow_flip)
+		j1 = -j1;
+
+	// j0 (shoulder): direction to the target, minus the angle link 2 swings the tip away from link 1
+	double j0 = atan2(y, x) - atan2(L * sin(j1), L + L * cos(j1));
+
+	// j3 (prismatic): straight from the target height
+	double j3 = SCARA_JOINT1_HEIGHT - z;
+	if (j3 < -0.000001 || j3 > SCARA_J3_MAX + 0.000001)
+		return false; // above the arm or below the bottom of the quill travel
+	j3 = std::max(0.0, std::min(SCARA_J3_MAX, j3));
+
+	j0 = wrap_180(j0 * 180.0 / CV_PI);
+	j1 = j1 * 180.0 / CV_PI;
+
+	// j2 (wrist): use fkin() to see where the tool points with j2 = 0, then turn by what is left
+	Vec4d reached = fkin(Vec4d(j0, j1, 0.0, j3));
+	double j2 = wrap_180(theta - reached[3]);
+
+	joints = Vec4d(j0, j1, j2, j3);
+	return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Part A-C: joints to home (Lab 5 init) and every Lab 6 variable back to its default
+void CRobot::init_lab6()
+{
+	init();
+
+	_joint_control = true;
+	_elbow_flip = false;
+	_track_marker = false;
+	_marker_found = false;
+	_ik_ok = true;
+	_ik_trail.clear();
+
+	// Drawn joints and target pose sliders both start at home
+	_joints_lab6 = get_joints();
+	Vec4d pose = fkin(_joints_lab6);
+	_pose[0] = pose[0] * 1000.0; // m -> mm
+	_pose[1] = pose[1] * 1000.0;
+	_pose[2] = pose[2] * 1000.0;
+	_pose[3] = pose[3];
+	_anim_start = Vec4d(_pose[0], _pose[1], _pose[2], _pose[3]);
+}
+
+// Part A: the Lab 6 robot is the Lab 5 robot, so build it with create_scara() and add the Lab 6 defaults
+void CRobot::create_scara_lab6()
+{
+	create_scara();
+	init_lab6();
+}
+
+// Part A-C: opposite of get_joints(), (deg, deg, deg, m) onto the int joint sliders (deg, deg, deg, mm)
+void CRobot::set_joint_sliders(Vec4d joints)
+{
+	_joint[0] = cvRound(joints[0]);
+	_joint[1] = cvRound(joints[1]);
+	_joint[2] = cvRound(joints[2]);
+	_joint[3] = cvRound(joints[3] * 1000.0); // m -> mm
+}
+
+// One 3D point (already in the drawing frame) to a pixel, with the camera drawBox() / drawCoord() use
+Point2f CRobot::to_image(Mat pt3d)
+{
+	Point2f pt2d;
+
+	if (_use_virtual_camera)
+		_virtualcam.transform_to_image(pt3d, pt2d);
+	else
+		_realcam.transform_to_image(pt3d, pt2d);
+
+	return pt2d;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Part B-B: OpenCV pose (rvec, tvec) to our standard 4x4 homogeneous transform, like createHT()
+// rvec is an axis-angle vector, Rodrigues turns it into the 3x3 rotation matrix.
+Mat CRobot::createHT_rvec(Mat rvec, Mat tvec)
+{
+	Mat R, t;
+	Rodrigues(rvec, R);
+	R.convertTo(R, CV_32F); // solvePnP works in doubles, the rest of the robot is float
+	tvec.reshape(1, 3).convertTo(t, CV_32F);
+
+	Mat T = Mat::eye(4, 4, CV_32F);
+	R.copyTo(T(Rect(0, 0, 3, 3))); // top left 3x3 = rotation
+	t.copyTo(T(Rect(3, 0, 1, 3))); // right column = translation
+
+	return T;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Part B-B: find marker ID 50 and work out its pose (X, Y, Z, R, P, Y) in the robot world frame
+// Part B-C: copy that pose (X, Y, Z, theta) onto the target pose sliders so ikine follows the marker
+// base = robot world frame seen from the board frame (the board alignment used for drawing)
+void CRobot::track_marker(Mat& im, Mat base)
+{
+	_marker_found = false;
+
+	if (_realcam.detect_single_marker(im, MARKER_ID, MARKER_SIZE) == false)
+		return;
+
+	// The camera sees both the board and the marker:
+	//   cTb = board in the camera frame, cTm = marker in the camera frame
+	Mat cTb = createHT_rvec(_realcam.get_rvec(), _realcam.get_tvec());
+	Mat cTm = createHT_rvec(_realcam.get_marker_rvec(), _realcam.get_marker_tvec());
+
+	// Marker in the board frame (what drawBox() needs), then in the robot world frame (what ikine needs)
+	_marker_bTm = cTb.inv() * cTm;
+	Mat wTm = base.inv() * _marker_bTm;
+
+	// Roll, pitch, yaw out of the rotation matrix, same Rz(A)*Ry(B)*Rx(Y) order createHT() builds
+	double r00 = wTm.at<float>(0, 0);
+	double r10 = wTm.at<float>(1, 0);
+	double r20 = wTm.at<float>(2, 0);
+	double r21 = wTm.at<float>(2, 1);
+	double r22 = wTm.at<float>(2, 2);
+
+	double roll = atan2(r21, r22) * 180.0 / CV_PI;
+	double pitch = atan2(-r20, sqrt(r00 * r00 + r10 * r10)) * 180.0 / CV_PI;
+	double yaw = atan2(r10, r00) * 180.0 / CV_PI;
+
+	_marker_pose = Vec6d(
+		wTm.at<float>(0, 3) * 1000.0, // m -> mm
+		wTm.at<float>(1, 3) * 1000.0,
+		wTm.at<float>(2, 3) * 1000.0,
+		roll, pitch, yaw);
+	_marker_found = true;
+
+	// Part B-C: link the marker to the pose sliders (kept inside the slider ranges).
+	// theta = yaw, the heading of the marker x axis about the robot z axis, same meaning as fkin() theta.
+	_pose[0] = std::max(-300.0, std::min(300.0, _marker_pose[0]));
+	_pose[1] = std::max(-300.0, std::min(300.0, _marker_pose[1]));
+	_pose[2] = std::max(0.0, std::min(150.0, _marker_pose[2]));
+	_pose[3] = yaw;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Part A-C (+ Part A-D button, Part B checkboxes): Lab 6 "Robot Settings" window
+// Same layout as update_scara_settings(), but the X Y Z Th sliders can now be the input.
+void CRobot::update_scara_settings_lab6(Mat& im)
+{
+	Point _setting_window;
+
+	_setting_window.x = im.size().width - 220;
+	_setting_window.y = 220;
+	cvui::window(im, _setting_window.x, _setting_window.y, 200, 500, "Robot Settings");
+
+	_setting_window.x += 5;
+	_setting_window.y += 20;
+
+	// Lab 5 Part A-C: one slider per joint. In end effector control these show the ikine() answer.
+	cvui::trackbar(im, _setting_window.x, _setting_window.y, 180, &_joint[0], -180, 180);
+	cvui::text(im, _setting_window.x + 180, _setting_window.y + 20, "j0");
+
+	_setting_window.y += 45;
+	cvui::trackbar(im, _setting_window.x, _setting_window.y, 180, &_joint[1], -180, 180);
+	cvui::text(im, _setting_window.x + 180, _setting_window.y + 20, "j1");
+
+	_setting_window.y += 45;
+	cvui::trackbar(im, _setting_window.x, _setting_window.y, 180, &_joint[2], -180, 180);
+	cvui::text(im, _setting_window.x + 180, _setting_window.y + 20, "j2");
+
+	_setting_window.y += 45;
+	cvui::trackbar(im, _setting_window.x, _setting_window.y, 180, &_joint[3], 0, 150); // mm
+	cvui::text(im, _setting_window.x + 180, _setting_window.y + 20, "j3");
+
+	// Reset button: joints home, back to joint control on the same camera
+	_setting_window.y += 50;
+	if (cvui::button(im, _setting_window.x, _setting_window.y, 90, 30, "Reset"))
+	{
+		init_lab6();
+	}
+
+	// Part A-D: Animate button. Joint control runs the Lab 5 joint animation,
+	// end effector control runs the straight line ikine animation.
+	if (cvui::button(im, _setting_window.x + 95, _setting_window.y, 90, 30, "Animate"))
+	{
+		if (_joint_control)
+			init(); // Lab 5 animation starts from home
+
+		_anim_count = 0;
+		_ik_trail.clear();
+		_do_animate = 1;
+	}
+
+	// Part A-C: target pose sliders. In joint control these show the fkin() answer.
+	_setting_window.y += 38;
+	cvui::trackbar(im, _setting_window.x, _setting_window.y, 180, &_pose[0], -300.0, 300.0);
+	cvui::text(im, _setting_window.x + 180, _setting_window.y + 20, "X");
+	_setting_window.y += 45;
+	cvui::trackbar(im, _setting_window.x, _setting_window.y, 180, &_pose[1], -300.0, 300.0);
+	cvui::text(im, _setting_window.x + 180, _setting_window.y + 20, "Y");
+	_setting_window.y += 45;
+	cvui::trackbar(im, _setting_window.x, _setting_window.y, 180, &_pose[2], 0.0, 150.0);
+	cvui::text(im, _setting_window.x + 180, _setting_window.y + 20, "Z");
+	_setting_window.y += 45;
+	cvui::trackbar(im, _setting_window.x, _setting_window.y, 180, &_pose[3], -180.0, 180.0);
+	cvui::text(im, _setting_window.x + 180, _setting_window.y + 20, "Th");
+
+	// Part A-C: Joint Control checkbox. Part B-B: Track Mark checkbox.
+	bool was_joint_control = _joint_control;
+	_setting_window.y += 50;
+	cvui::checkbox(im, _setting_window.x, _setting_window.y, "Joint Control", &_joint_control);
+	cvui::checkbox(im, _setting_window.x + 105, _setting_window.y, "Track Mark", &_track_marker);
+
+	// Part A-B: which ikine() solution. Lab 5 Part B-B: virtual camera or ArUco board.
+	_setting_window.y += 22;
+	cvui::checkbox(im, _setting_window.x, _setting_window.y, "Elbow Flip", &_elbow_flip);
+	cvui::checkbox(im, _setting_window.x + 105, _setting_window.y, "On Board", &_draw_on_board);
+
+	// Part B-C: tracking needs the webcam, and the marker drives the end effector
+	if (_track_marker)
+	{
+		_draw_on_board = true;
+		_joint_control = false;
+	}
+
+	// The two animations use different step numbers, so stop when the control mode changes.
+	// The marker also overrides any animation.
+	if (was_joint_control != _joint_control || _track_marker)
+	{
+		_do_animate = 0;
+		_anim_count = 0;
+	}
+
+	if (_joint_control)
+	{
+		// Joint control (Lab 5): joint sliders are the input, fkin() fills in the pose sliders
+		animate_scara(); // Lab 5 Part B-A joint animation, one step per frame
+
+		_joints_lab6 = get_joints();
+		Vec4d pose = fkin(_joints_lab6);
+		_pose[0] = pose[0] * 1000.0; // m -> mm
+		_pose[1] = pose[1] * 1000.0;
+		_pose[2] = pose[2] * 1000.0;
+		_pose[3] = pose[3];
+
+		// Keep the elbow choice matching the arm, so unticking Joint Control does not flip the elbow
+		_elbow_flip = (_joint[1] < 0);
+		_ik_ok = true;
+	}
+	else
+	{
+		// Part A-C end effector control: pose sliders are the input, ikine() fills in the joint sliders
+		animate_scara_ikine(); // Part A-D straight line animation, one step per frame
+
+		Vec4d joints;
+		_ik_ok = ikine(Vec4d(_pose[0] / 1000.0, _pose[1] / 1000.0, _pose[2] / 1000.0, _pose[3]), joints, _elbow_flip);
+
+		if (_ik_ok)
+		{
+			_joints_lab6 = joints;
+			set_joint_sliders(joints);
+
+			// Part A-D: remember where the end effector really went (fkin of the ikine answer)
+			if (_do_animate != 0)
+			{
+				Vec4d reached = fkin(joints);
+				_ik_trail.push_back((Mat1f(4, 1) << (float)reached[0], (float)reached[1], (float)reached[2], 1.0f));
+			}
+		}
+		else
+		{
+			// Out of reach: the robot holds its last good pose, put that back on the joint sliders
+			set_joint_sliders(_joints_lab6);
+		}
+	}
+
+	// Status line under the checkboxes
+	_setting_window.y += 24;
+	if (_ik_ok == false)
+		cvui::text(im, _setting_window.x, _setting_window.y, "Target unreachable", 0.4, 0xFF6060);
+	else if (_do_animate != 0)
+		cvui::printf(im, _setting_window.x, _setting_window.y, 0.4, 0xFFFF00, "Animating (step %d)", _do_animate);
+	else if (_track_marker)
+		cvui::text(im, _setting_window.x, _setting_window.y, _marker_found ? "Tracking marker" : "Marker not found", 0.4, _marker_found ? 0x60FF60 : 0xFF6060);
+	else
+		cvui::text(im, _setting_window.x, _setting_window.y, _joint_control ? "Joint control (fkin)" : "End effector control (ikine)", 0.4, 0xC0C0C0);
+
+	// Only ONE cvui::update() per frame, otherwise the buttons do not work
+	cvui::update();
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Part A-D: Inverse kinematic animation, one step per frame (called from update_scara_settings_lab6)
+// Same state machine idea as animate_scara(): _do_animate = which move, _anim_count = step in that move.
+// Only the target pose is moved here, in a straight line. ikine() then turns each pose into joints.
+void CRobot::animate_scara_ikine()
+{
+	int num_moves = sizeof(IK_WAYPOINTS) / sizeof(IK_WAYPOINTS[0]);
+
+	if (_do_animate == 0)
+		return; // not animating
+
+	if (_do_animate > num_moves)
+	{
+		// done: stay at the last waypoint
+		_do_animate = 0;
+		_anim_count = 0;
+		return;
+	}
+
+	// First step of a move: remember where the end effector is starting from
+	if (_anim_count == 0)
+		_anim_start = Vec4d(_pose[0], _pose[1], _pose[2], _pose[3]);
+
+	_anim_count++;
+
+	// Linear interpolation: t goes 0 -> 1, pose = start + (target - start) * t
+	double t = (double)_anim_count / IK_ANIM_STEPS;
+	Vec4d target = IK_WAYPOINTS[_do_animate - 1];
+	Vec4d pose = _anim_start + (target - _anim_start) * t;
+
+	for (int i = 0; i < 4; i++)
+		_pose[i] = pose[i];
+
+	// Arrived: next move
+	if (_anim_count >= IK_ANIM_STEPS)
+	{
+		_do_animate++;
+		_anim_count = 0;
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Part A-C / Part B: Draw the SCARA robot for Lab 6
+// Same steps as draw_scara(), but drawn from _joints_lab6 (sliders or ikine), plus the marker.
+void CRobot::draw_scara_lab6()
+{
+	_canvas = cv::Mat::zeros(_image_size, CV_8UC3) + CV_RGB(60, 60, 60);
+
+	// drawBox() / drawCoord() pick the camera from this flag
+	_use_virtual_camera = !_draw_on_board;
+
+	bool have_pose = true;
+	Mat base = createHT( // virtual camera: robot world = drawing world
+		Vec3d(0.0, 0.0, 0.0),
+		Vec3d(0.0, 0.0, 0.0));
+
+	_marker_found = false;
+
+	if (_draw_on_board)
+	{
+		Mat im_raw;
+
+		// Part B-A 1) Get the webcam image and the board pose (same steps as draw_scara)
+		_realcam.get_image(im_raw);
+		_realcam.detect_markers(0);
+
+		// Part B-A 2) Webcam image at the top left, where its pixel coordinates line up
+		if (!im_raw.empty() && im_raw.cols <= _canvas.cols && im_raw.rows <= _canvas.rows)
+		{
+			im_raw.copyTo(_canvas(Rect(0, 0, im_raw.cols, im_raw.rows)));
+		}
+		else
+		{
+			cvui::text(_canvas, 20, 20, "No webcam image", 0.6, 0xFF6060);
+		}
+
+		// Part B-A 3) Without a board pose there is nothing to project onto
+		have_pose = !(_realcam.get_rvec().empty() || _realcam.get_tvec().empty());
+		if (!have_pose)
+		{
+			cvui::text(_canvas, 20, 50, "No ArUco board pose yet - robot not drawn", 0.6, 0xFF6060);
+		}
+
+		// Part B-A 4) Same board alignment as draw_scara so robot z points up off the board
+		base = createHT(
+			Vec3d(0.0, 0.0, 0.0),
+			Vec3d(180.0, 0.0, 90.0));
+
+		// Part B-B / B-C 5) Marker ID 50: find its pose and copy it onto the target pose sliders.
+		// update_scara_settings_lab6() below then runs ikine on those sliders.
+		if (_track_marker && have_pose)
+		{
+			track_marker(im_raw, base);
+		}
+	}
+
+	if (have_pose)
+	{
+		// Joint frames from the Lab 6 joints (joint sliders, or the ikine answer)
+		std::vector<Mat> T = scara_transforms(_joints_lab6);
+
+		// Which frame each box lives in: pedestal->wT0, link1->wT1, link2->wT2, quill->wT4 (end effector)
+		int link_frame[] = { 0, 1, 2, 4 };
+
+		for (size_t i = 0; i < _scara_links.size(); i++)
+		{
+			// Deep copy (clone) so the stored model stays in its own frame, see draw_scara()
+			std::vector<Mat> box;
+			for (const Mat& pt : _scara_links.at(i))
+				box.push_back(pt.clone());
+
+			transformPoints(box, base * T.at(link_frame[i]));
+			drawBox(_canvas, box, _scara_colors.at(i));
+		}
+
+		// Coordinate axes at the world origin and at every joint frame
+		for (size_t i = 0; i < T.size(); i++)
+		{
+			std::vector<Mat> coord = createCoord();
+			transformPoints(coord, base * T.at(i));
+			drawCoord(_canvas, coord);
+		}
+
+		// Part A-C check: yellow circle at the TARGET pose from the X Y Z sliders.
+		// When ikine has solved it, the end effector axes sit inside the circle.
+		Mat target = base * (Mat1f(4, 1) << (float)(_pose[0] / 1000.0), (float)(_pose[1] / 1000.0), (float)(_pose[2] / 1000.0), 1.0f);
+		circle(_canvas, to_image(target), 6, CV_RGB(255, 255, 0), 1);
+
+		// Part A-D: the path the end effector has followed in the ikine animation (should be straight lines)
+		for (size_t i = 1; i < _ik_trail.size(); i++)
+		{
+			Point pt1 = to_image(base * _ik_trail.at(i - 1));
+			Point pt2 = to_image(base * _ik_trail.at(i));
+			line(_canvas, pt1, pt2, CV_RGB(0, 255, 255), 1);
+		}
+
+		// Part B-B: yellow box around the marker. The marker is on the top face of its paper cube,
+		// so the box is centred half a cube below the marker (marker z points up out of the paper).
+		if (_marker_found)
+		{
+			std::vector<Mat> marker_box = createBox(MARKER_BOX_SIZE, MARKER_BOX_SIZE, MARKER_BOX_SIZE);
+			transformPoints(marker_box, _marker_bTm * createHT(
+				Vec3d(0.0, 0.0, -MARKER_BOX_SIZE / 2),
+				Vec3d(0.0, 0.0, 0.0)));
+			drawBox(_canvas, marker_box, CV_RGB(255, 255, 0));
+
+			std::vector<Mat> marker_coord = createCoord();
+			transformPoints(marker_coord, _marker_bTm);
+			drawCoord(_canvas, marker_coord);
+		}
+	}
+
+	// Part B-B: marker pose readout (robot world frame) at the bottom left, below a 640 x 480 webcam image
+	if (_track_marker)
+	{
+		int text_y = _canvas.rows - 40;
+
+		if (_marker_found)
+		{
+			cvui::printf(_canvas, 5, text_y, 0.4, 0xFFFF00, "Marker %d  X %.0f  Y %.0f  Z %.0f mm", MARKER_ID, _marker_pose[0], _marker_pose[1], _marker_pose[2]);
+			cvui::printf(_canvas, 5, text_y + 20, 0.4, 0xFFFF00, "Marker %d  R %.0f  P %.0f  Y %.0f deg", MARKER_ID, _marker_pose[3], _marker_pose[4], _marker_pose[5]);
+		}
+		else
+		{
+			cvui::printf(_canvas, 5, text_y, 0.4, 0xFF6060, "Marker %d not found", MARKER_ID);
+		}
+	}
+
+	// Draw the UI on the right side (camera settings for whichever camera is in use)
+	if (_draw_on_board)
+		_realcam.update_settings(_canvas);
+	else
+		_virtualcam.update_settings(_canvas);
+
+	update_scara_settings_lab6(_canvas);
+
+	cv::imshow(CANVAS_NAME, _canvas);
+}

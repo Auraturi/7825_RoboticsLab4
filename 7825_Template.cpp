@@ -85,9 +85,22 @@ void lab5(int cam_id)
 }
 
 void lab6(int cam_id)
-{  
-    //lab 6 begins
+{
+  char exit_key = -1;
+  CRobot robot;
 
+  // Part A: same SCARA boxes as Lab 5, plus the Lab 6 variables. Starts on the virtual camera
+  // in joint control. Untick "Joint Control" to drive the end effector with ikine.
+  robot.create_scara_lab6();
+
+  while (exit_key != 'q')
+  {
+    // Part A: sliders, Joint Control checkbox, Animate (joint or straight line ikine animation)
+    // Part B: "On Board" draws on the ArUco board, "Track Mark" locks the robot onto marker ID 50
+    robot.draw_scara_lab6();
+
+    exit_key = waitKey(10);
+  }
 }
 
 void lab7(int cam_id)

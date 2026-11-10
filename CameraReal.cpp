@@ -192,6 +192,59 @@ void CCameraReal::detect_markers(int cam_id)
 }
 
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+// LAB 6 Part B-B: pose of a single ArUco marker (the lab uses ID = 50)
+// The lab PDF names estimatePoseSingleMarkers, which is not in this OpenCV build (4.10 without contrib).
+// This does the same job the same way: detect the marker corners, then solvePnP on the 4 corners.
+// Result is stored in _marker_rvec / _marker_tvec = marker pose in the CAMERA frame.
+// rvec is an axis-angle vector, convert with Rodrigues to get the rotation matrix.
+bool CCameraReal::detect_single_marker(Mat& im, int marker_id, float marker_size)
+	{
+	_marker_rvec.release();
+	_marker_tvec.release();
+
+	if (im.empty() || _cam_webcam_intrinsic.empty() || _cam_webcam_dist_coeff.empty())
+		{
+		return false;
+		}
+
+	// Same dictionary as the ChArUco board. The board only uses the low IDs, so 50 is free.
+	aruco::DetectorParameters detectorParams = aruco::DetectorParameters();
+	aruco::Dictionary dictionary = aruco::getPredefinedDictionary(aruco::DICT_6X6_250);
+	aruco::ArucoDetector detector(dictionary, detectorParams);
+
+	vector<int> markerIds;
+	vector<vector<Point2f>> markerCorners;
+	detector.detectMarkers(im, markerCorners, markerIds);
+
+	// The 4 marker corners in the marker's own frame: origin at the centre, x right, y up, z out of the paper.
+	// Order matches detectMarkers: top left, top right, bottom right, bottom left.
+	float half = marker_size / 2;
+	vector<Point3f> objectPoints = {
+		Point3f(-half,  half, 0),
+		Point3f( half,  half, 0),
+		Point3f( half, -half, 0),
+		Point3f(-half, -half, 0)
+		};
+
+	for (int i = 0; i < markerIds.size(); i++)
+		{
+		if (markerIds.at(i) != marker_id)
+			continue;
+
+		Mat rvec, tvec;
+		if (cv::solvePnP(objectPoints, markerCorners.at(i), _cam_webcam_intrinsic, _cam_webcam_dist_coeff, rvec, tvec, false, SOLVEPNP_IPPE_SQUARE))
+			{
+			_marker_rvec = rvec;
+			_marker_tvec = tvec;
+			return true;
+			}
+		}
+
+	return false;
+	}
+
+
 void CCameraReal::calibrate_board(int cam_id)
 {
 	// Board settings
